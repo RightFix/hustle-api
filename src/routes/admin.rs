@@ -166,7 +166,7 @@ pub async fn get_user(
     let gig_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM gigs WHERE poster_id = $1")
         .bind(id).fetch_one(&state.pool).await?;
     let application_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM gig_applications WHERE applicant_id = $1",
+        "SELECT COUNT(*) FROM gig_applications WHERE worker_id = $1",
     ).bind(id).fetch_one(&state.pool).await?;
     let conversation_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM conversations WHERE user_a = $1 OR user_b = $1",
