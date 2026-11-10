@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Posts from './pages/Posts'
 import Gigs from './pages/Gigs'
+import Reports from './pages/Reports'
 
 export default function App() {
   const [me, setMe] = useState<UserOut | null>(null)
@@ -83,6 +84,7 @@ export default function App() {
         <NavLink to="/users">Users</NavLink>
         <NavLink to="/posts">Posts</NavLink>
         <NavLink to="/gigs">Gigs</NavLink>
+        <NavLink to="/reports">Reports</NavLink>
       </nav>
       {error && <p className="error">{error}</p>}
       <Routes>
@@ -90,6 +92,7 @@ export default function App() {
         <Route path="/users" element={<Users currentAdminId={me.id} />} />
         <Route path="/posts" element={<Posts />} />
         <Route path="/gigs" element={<Gigs />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

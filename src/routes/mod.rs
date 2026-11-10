@@ -14,6 +14,7 @@ pub mod health;
 pub mod messages;
 pub mod notifications;
 pub mod posts;
+pub mod reports;
 pub mod users;
 
 pub fn router(upload_dir: &str) -> Router<AppState> {
@@ -61,7 +62,9 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         .route("/admin/posts", get(admin::list_posts))
         .route("/admin/posts/{id}", delete(admin::delete_post))
         .route("/admin/gigs", get(admin::list_gigs))
-        .route("/admin/gigs/{id}", delete(admin::delete_gig));
+        .route("/admin/gigs/{id}", delete(admin::delete_gig))
+        .route("/admin/reports", get(reports::admin_list_reports))
+        .route("/admin/reports/{id}", axum::routing::patch(reports::admin_resolve_report));
 
     let gigs = Router::new()
         .route("/gigs", get(gigs::list_gigs).post(gigs::create_gig))
@@ -103,7 +106,8 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
             "/notifications/{notification_id}/read",
             post(notifications::mark_read),
         )
-        .route("/notifications/read-all", post(notifications::mark_all_read));
+        .route("/notifications/read-all", post(notifications::mark_all_read))
+        .route("/reports", post(reports::create_report));
 
     let gallery = Router::new()
         .route(

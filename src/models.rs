@@ -580,3 +580,138 @@ pub struct PaginatedAdminGigs {
     pub page: u32,
     pub per_page: u32,
 }
+
+
+// ----- Reports -----
+
+#[derive(Debug, Clone, FromRow)]
+pub struct ReportRow {
+    pub id: i32,
+    pub reporter_id: i32,
+    pub target_type: String,
+    pub target_id: i32,
+    pub reason: String,
+    pub details: Option<String>,
+    pub status: String,
+    pub admin_note: Option<String>,
+    pub resolved_by: Option<i32>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct AdminReportRow {
+    pub id: i32,
+    pub reporter_id: i32,
+    pub reporter_username: String,
+    pub target_type: String,
+    pub target_id: i32,
+    pub target_label: Option<String>,
+    pub reason: String,
+    pub details: Option<String>,
+    pub status: String,
+    pub admin_note: Option<String>,
+    pub resolved_by: Option<i32>,
+    pub resolved_by_username: Option<String>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReportOut {
+    pub id: i32,
+    pub reporter_id: i32,
+    pub target_type: String,
+    pub target_id: i32,
+    pub reason: String,
+    pub details: Option<String>,
+    pub status: String,
+    pub admin_note: Option<String>,
+    pub resolved_by: Option<i32>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<ReportRow> for ReportOut {
+    fn from(r: ReportRow) -> Self {
+        Self {
+            id: r.id,
+            reporter_id: r.reporter_id,
+            target_type: r.target_type,
+            target_id: r.target_id,
+            reason: r.reason,
+            details: r.details,
+            status: r.status,
+            admin_note: r.admin_note,
+            resolved_by: r.resolved_by,
+            resolved_at: r.resolved_at,
+            created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AdminReportOut {
+    pub id: i32,
+    pub reporter_id: i32,
+    pub reporter_username: String,
+    pub target_type: String,
+    pub target_id: i32,
+    /// Human-friendly label when resolvable (username, post excerpt, gig title).
+    pub target_label: Option<String>,
+    pub reason: String,
+    pub details: Option<String>,
+    pub status: String,
+    pub admin_note: Option<String>,
+    pub resolved_by: Option<i32>,
+    pub resolved_by_username: Option<String>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<AdminReportRow> for AdminReportOut {
+    fn from(r: AdminReportRow) -> Self {
+        Self {
+            id: r.id,
+            reporter_id: r.reporter_id,
+            reporter_username: r.reporter_username,
+            target_type: r.target_type,
+            target_id: r.target_id,
+            target_label: r.target_label,
+            reason: r.reason,
+            details: r.details,
+            status: r.status,
+            admin_note: r.admin_note,
+            resolved_by: r.resolved_by,
+            resolved_by_username: r.resolved_by_username,
+            resolved_at: r.resolved_at,
+            created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PaginatedAdminReports {
+    pub items: Vec<AdminReportOut>,
+    pub total: i64,
+    pub page: u32,
+    pub per_page: u32,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateReportRequest {
+    /// "user" | "post" | "gig"
+    pub target_type: String,
+    pub target_id: i32,
+    /// Short reason/category (e.g. spam, harassment, scam, inappropriate, other).
+    pub reason: String,
+    /// Optional additional context.
+    pub details: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ResolveReportRequest {
+    /// "resolved" | "dismissed"
+    pub status: String,
+    pub admin_note: Option<String>,
+}
