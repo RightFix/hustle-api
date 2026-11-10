@@ -9,3 +9,7 @@ target/
 # local binaries & uploads
 hustle-backend
 uploads/
+
+# admin panel build artifacts
+admin-panel/node_modules/
+admin-panel/dist/
