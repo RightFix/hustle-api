@@ -10,8 +10,7 @@ use crate::models::{
     UpdateAccountRequest, UpdateGigStatusRequest, UpdateSkillsRequest, UserOut,
     ApplyGigRequest, ConversationOut, MessageBrief, MessageOut, StartConversationRequest,
     UserBrief, SendMessageRequest, NotificationOut, NotificationPage, UnreadCountOut,
-    GalleryItemOut, AdminUpdateUser, AdminUserDetail, AdminPostOut, PaginatedAdminPosts,
-    AdminGigOut, PaginatedAdminGigs,
+    GalleryItemOut,
 };
 
 struct SecurityAddon;
