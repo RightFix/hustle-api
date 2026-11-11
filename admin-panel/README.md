@@ -11,8 +11,8 @@ Standalone React + Vite dashboard (in the backend repo) for Hustle's admin API.
 - `GET /api/admin/posts` / `DELETE /api/admin/posts/{id}`
 - `GET /api/admin/gigs` / `DELETE /api/admin/gigs/{id}`
 - `GET /api/admin/reports` (filter `status`, `target_type`, pagination)
-- `PATCH /api/admin/reports/{id}` (resolve/dismiss + admin note, optional quick actions: `suspend_user` for user targets, `delete_target` for post/gig targets)
-- `GET /api/admin/audit` (admin action audit log, pagination)
+- `PATCH /api/admin/reports/{id}` (resolve/dismiss + admin note, optional quick actions: `suspend_user` / `delete_user` for user targets, `delete_target` for post/gig targets)
+- `GET /api/admin/audit` (admin action audit log, pagination, filters: `action`, `target_type`, `actor_id`)
 
 Auth uses the existing cookie session: login via `POST /api/auth/login`, session checked with `GET /api/users/me` (must be `is_admin`).
 

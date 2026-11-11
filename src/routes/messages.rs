@@ -1,4 +1,5 @@
 use axum::{
+    http::HeaderMap,
     extract::{Path, Query, State},
     Json,
 };
@@ -92,9 +93,13 @@ pub async fn list_conversations(
 )]
 pub async fn start_conversation(
     State(state): State<AppState>,
+    headers: HeaderMap,
     CurrentUser(current): CurrentUser,
     Json(payload): Json<StartConversationRequest>,
 ) -> AppResult<Json<ConversationOut>> {
+    if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
+        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+    }
     if payload.user_id == current.id {
         return Err(AppError::BadRequest("Cannot message yourself".into()));
     }

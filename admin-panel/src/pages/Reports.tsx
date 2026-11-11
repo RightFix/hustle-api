@@ -37,7 +37,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<number, string>>({})
-  const [actions, setActions] = useState<Record<number, { suspend: boolean; suspendReason: string; del: boolean }>>({})
+  const [actions, setActions] = useState<Record<number, { suspend: boolean; suspendReason: string; del: boolean; delUser: boolean }>>({})
 
   const load = async (p = page, s = status, t = targetType) => {
     setLoading(true); setError(null)
@@ -55,11 +55,12 @@ export default function Reports() {
   const resolve = async (id: number, next: 'resolved' | 'dismissed') => {
     try {
       setError(null)
-      const a = actions[id] || { suspend: false, suspendReason: '', del: false }
+      const a = actions[id] || { suspend: false, suspendReason: '', del: false, delUser: false }
       const body: any = { status: next, admin_note: notes[id] || undefined }
       if (next === 'resolved') {
         if (a.suspend) { body.suspend_user = true; if (a.suspendReason) body.suspend_reason = a.suspendReason }
         if (a.del) body.delete_target = true
+        if (a.delUser) body.delete_user = true
       }
       await req(`/api/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
       await load(page)
@@ -113,16 +114,21 @@ export default function Reports() {
                     <div className="grid" style={{ gap: 6 }}>
                       <input className="input" placeholder="Admin note (optional)" value={notes[r.id] || ''} onChange={e => setNotes(n => ({ ...n, [r.id]: e.target.value }))} />
                       {r.target_type === 'user' && (
-                        <label className="muted" style={{ fontSize: 13 }}>
-                          <input type="checkbox" checked={actions[r.id]?.suspend || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: e.target.checked, suspendReason: a[r.id]?.suspendReason || '', del: a[r.id]?.del || false } }))} /> Suspend reported user
-                        </label>
-                      )}
-                      {actions[r.id]?.suspend && r.target_type === 'user' && (
-                        <input className="input" placeholder="Suspension reason" value={actions[r.id]?.suspendReason || ''} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: true, suspendReason: e.target.value, del: a[r.id]?.del || false } }))} />
+                        <>
+                          <label className="muted" style={{ fontSize: 13 }}>
+                            <input type="checkbox" checked={actions[r.id]?.suspend || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: e.target.checked, suspendReason: a[r.id]?.suspendReason || '', del: a[r.id]?.del || false, delUser: a[r.id]?.delUser || false } }))} /> Suspend reported user
+                          </label>
+                          {actions[r.id]?.suspend && (
+                            <input className="input" placeholder="Suspension reason" value={actions[r.id]?.suspendReason || ''} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: true, suspendReason: e.target.value, del: a[r.id]?.del || false, delUser: a[r.id]?.delUser || false } }))} />
+                          )}
+                          <label className="muted" style={{ fontSize: 13, color: '#f87171' }}>
+                            <input type="checkbox" checked={actions[r.id]?.delUser || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: a[r.id]?.suspend || false, suspendReason: a[r.id]?.suspendReason || '', del: a[r.id]?.del || false, delUser: e.target.checked } }))} /> Delete reported user (destructive)
+                          </label>
+                        </>
                       )}
                       {(r.target_type === 'post' || r.target_type === 'gig') && (
                         <label className="muted" style={{ fontSize: 13 }}>
-                          <input type="checkbox" checked={actions[r.id]?.del || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: a[r.id]?.suspend || false, suspendReason: a[r.id]?.suspendReason || '', del: e.target.checked } }))} /> Delete reported {r.target_type}
+                          <input type="checkbox" checked={actions[r.id]?.del || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: a[r.id]?.suspend || false, suspendReason: a[r.id]?.suspendReason || '', del: e.target.checked, delUser: a[r.id]?.delUser || false } }))} /> Delete reported {r.target_type}
                         </label>
                       )}
                       <div className="row">

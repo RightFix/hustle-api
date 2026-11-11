@@ -25,6 +25,8 @@ pub enum AppError {
     Unprocessable(String),
     #[error("{0}")]
     PayloadTooLarge(String),
+    #[error("{0}")]
+    TooManyRequests(String),
     #[error("Internal server error")]
     Internal,
 }
@@ -43,6 +45,7 @@ impl AppError {
             Self::Conflict(_) => StatusCode::CONFLICT,
             Self::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
+            Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, detail)

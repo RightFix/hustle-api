@@ -26,10 +26,15 @@ fn check(key: &str, limit: usize, window: Duration) -> bool {
         return false;
     }
     entry.push(now);
-    if map.len() > 5000 {
+    if map.len() > 8000 {
         map.retain(|_, v| !v.is_empty());
     }
     true
+}
+
+/// Check a custom key (used by WS and other non-HTTP contexts).
+pub fn allow(key: &str, limit: usize, window: Duration) -> bool {
+    check(key, limit, window)
 }
 
 fn client_ip(req: &Request) -> String {
@@ -76,4 +81,26 @@ pub async fn report_limit(req: Request, next: Next) -> Response {
         return deny();
     }
     next.run(req).await
+}
+
+/// Higher-friction social/write interactions (follow, start conversation, apply).
+pub async fn interact_limit(req: Request, next: Next) -> Response {
+    let ip = client_ip(&req);
+    if !check(&format!("interact:{ip}"), 40, Duration::from_secs(60)) {
+        return deny();
+    }
+    next.run(req).await
+}
+
+
+/// Helper for in-handler checks (returns Err-style bool: true if allowed).
+pub fn check_ip(headers: &axum::http::HeaderMap, bucket: &str, limit: usize, window_secs: u64) -> bool {
+    let ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_owned());
+    check(&format!("{bucket}:{ip}"), limit, Duration::from_secs(window_secs))
 }

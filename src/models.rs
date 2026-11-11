@@ -730,6 +730,9 @@ pub struct ResolveReportRequest {
     /// If target is a post or gig and resolving, optionally delete the target content.
     #[serde(default)]
     pub delete_target: bool,
+    /// If target is a user and resolving, optionally delete the user account (destructive).
+    #[serde(default)]
+    pub delete_user: bool,
 }
 
 

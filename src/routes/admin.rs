@@ -427,6 +427,12 @@ pub struct AuditQuery {
     pub page: u32,
     #[serde(default = "default_per_page")]
     pub per_page: u32,
+    /// Filter by action name (exact match), e.g. "user.suspend".
+    pub action: Option<String>,
+    /// Filter by target type, e.g. "user", "post", "gig", "report".
+    pub target_type: Option<String>,
+    /// Filter by actor user id.
+    pub actor_id: Option<i32>,
 }
 
 #[utoipa::path(
@@ -445,19 +451,35 @@ pub async fn list_audit(
     let page = q.page.max(1);
     let per_page = q.per_page.clamp(1, 100);
     let offset = (page - 1) as i64 * per_page as i64;
+    let action = q.action.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let target_type = q.target_type.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
-    let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM admin_audit_logs")
-        .fetch_one(&state.pool)
-        .await?;
+    let total = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM admin_audit_logs a \
+         WHERE ($1::text IS NULL OR a.action = $1) \
+           AND ($2::text IS NULL OR a.target_type = $2) \
+           AND ($3::int IS NULL OR a.actor_id = $3)",
+    )
+    .bind(action)
+    .bind(target_type)
+    .bind(q.actor_id)
+    .fetch_one(&state.pool)
+    .await?;
 
     let rows = sqlx::query_as::<_, AdminAuditRow>(
         "SELECT a.id, a.actor_id, u.username AS actor_username, a.action, a.target_type, \
                 a.target_id, a.metadata, a.created_at \
          FROM admin_audit_logs a \
          LEFT JOIN users u ON u.id = a.actor_id \
+         WHERE ($1::text IS NULL OR a.action = $1) \
+           AND ($2::text IS NULL OR a.target_type = $2) \
+           AND ($3::int IS NULL OR a.actor_id = $3) \
          ORDER BY a.created_at DESC, a.id DESC \
-         LIMIT $1 OFFSET $2",
+         LIMIT $4 OFFSET $5",
     )
+    .bind(action)
+    .bind(target_type)
+    .bind(q.actor_id)
     .bind(per_page as i64)
     .bind(offset)
     .fetch_all(&state.pool)

@@ -1,4 +1,5 @@
 use axum::{
+    http::HeaderMap,
     extract::{Path, Query, State},
     http::StatusCode,
     Json,
@@ -107,9 +108,13 @@ async fn poster_of(state: &AppState, gig_id: i32) -> AppResult<i32> {
 )]
 pub async fn create_gig(
     State(state): State<AppState>,
+    headers: HeaderMap,
     CurrentUser(current): CurrentUser,
     Json(payload): Json<CreateGigRequest>,
 ) -> AppResult<(StatusCode, Json<GigOut>)> {
+    if !crate::rate_limit::check_ip(&headers, "gig", 20, 300) {
+        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+    }
     if current.account_type != "hirer" {
         return Err(AppError::Forbidden(
             "Switch to a hirer profile to post gigs".into(),
@@ -355,10 +360,14 @@ pub async fn delete_gig(
 )]
 pub async fn apply_gig(
     State(state): State<AppState>,
+    headers: HeaderMap,
     CurrentUser(current): CurrentUser,
     Path(gig_id): Path<i32>,
     Json(payload): Json<ApplyGigRequest>,
 ) -> AppResult<(StatusCode, Json<crate::models::Message>)> {
+    if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
+        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+    }
     if current.account_type != "worker" {
         return Err(AppError::Forbidden(
             "Switch to a worker profile to apply for gigs".into(),

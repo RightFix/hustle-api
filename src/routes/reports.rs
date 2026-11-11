@@ -276,6 +276,19 @@ pub async fn admin_resolve_report(
         crate::audit::log(&state, admin.id, "user.suspend", "user", Some(existing.target_id), json!({"from_report": id, "reason": reason})).await;
     }
 
+    if payload.delete_user && status == "resolved" && existing.target_type == "user" {
+        if existing.target_id == admin.id {
+            return Err(AppError::BadRequest("You cannot delete your own account".into()));
+        }
+        let res = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(existing.target_id)
+            .execute(&state.pool)
+            .await?;
+        if res.rows_affected() > 0 {
+            crate::audit::log(&state, admin.id, "user.delete", "user", Some(existing.target_id), json!({"from_report": id})).await;
+        }
+    }
+
     let updated = sqlx::query(
         "UPDATE reports SET status = $1, admin_note = $2, resolved_by = $3, resolved_at = now() \
          WHERE id = $4",
@@ -308,7 +321,8 @@ pub async fn admin_resolve_report(
             "target_type": row.target_type,
             "target_id": row.target_id,
             "suspend_user": payload.suspend_user,
-            "delete_target": payload.delete_target
+            "delete_target": payload.delete_target,
+            "delete_user": payload.delete_user
         }),
     )
     .await;

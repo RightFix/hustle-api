@@ -26,13 +26,20 @@ async function req<T>(path: string): Promise<T> {
 export default function Audit() {
   const [data, setData] = useState<Page | null>(null)
   const [page, setPage] = useState(1)
+  const [action, setAction] = useState('')
+  const [targetType, setTargetType] = useState('')
+  const [actorId, setActorId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = async (p = page) => {
     setLoading(true); setError(null)
     try {
-      setData(await req<Page>(`/api/admin/audit?page=${p}&per_page=30`))
+      const qs = new URLSearchParams({ page: String(p), per_page: '30' })
+      if (action.trim()) qs.set('action', action.trim())
+      if (targetType.trim()) qs.set('target_type', targetType.trim())
+      if (actorId.trim()) qs.set('actor_id', actorId.trim())
+      setData(await req<Page>(`/api/admin/audit?${qs.toString()}`))
       setPage(p)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
@@ -42,9 +49,15 @@ export default function Audit() {
 
   return (
     <div className="card">
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>Admin audit log</h3>
-        <button className="btn secondary" onClick={() => load(page)}>Refresh</button>
+        <div className="row" style={{ flexWrap: 'wrap' }}>
+          <input className="input" placeholder="Action (e.g. user.suspend)" value={action} onChange={e => setAction(e.target.value)} style={{ width: 180 }} />
+          <input className="input" placeholder="Target type" value={targetType} onChange={e => setTargetType(e.target.value)} style={{ width: 120 }} />
+          <input className="input" placeholder="Actor ID" value={actorId} onChange={e => setActorId(e.target.value)} style={{ width: 100 }} />
+          <button className="btn secondary" onClick={() => load(1)}>Apply</button>
+          <button className="btn secondary" onClick={() => load(page)}>Refresh</button>
+        </div>
       </div>
       <p className="muted" style={{ marginTop: 0 }}>{data?.total ?? 0} total actions</p>
       {error && <p className="error">{error}</p>}

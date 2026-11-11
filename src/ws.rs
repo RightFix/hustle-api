@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 use std::sync::Mutex;
 
 use axum::extract::ws::{Message as WsFrame, WebSocket};
@@ -142,6 +143,13 @@ async fn handle_client_event(state: &AppState, user_id: i32, event: ClientEvent)
             state.hub.send_to(user_id, json!({"type":"pong"}));
         }
         "send" => {
+            if !crate::rate_limit::allow(&format!("wsmsg:{user_id}"), 30, Duration::from_secs(60)) {
+                state.hub.send_to(
+                    user_id,
+                    json!({"type":"error","detail":"You are sending messages too quickly. Please slow down."}),
+                );
+                return;
+            }
             let (conv_id, body) = match (event.conversation_id, event.body) {
                 (Some(id), Some(body)) => (id, body.trim().to_owned()),
                 _ => {

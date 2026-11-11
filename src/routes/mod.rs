@@ -41,7 +41,9 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         .route("/users/{user_id}/skills", get(users::read_skills))
         .route(
             "/users/{user_id}/follow",
-            axum::routing::post(users::follow_user).delete(users::unfollow_user),
+            axum::routing::post(users::follow_user)
+                .route_layer(middleware::from_fn(crate::rate_limit::interact_limit))
+                .delete(users::unfollow_user),
         )
         .route(
             "/users/{user_id}/block",
