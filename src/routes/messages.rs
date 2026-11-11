@@ -100,6 +100,10 @@ pub async fn start_conversation(
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
+    if crate::routes::blocks::is_blocked_either(&state.pool, current.id, target).await? {
+        return Err(AppError::Forbidden("You cannot message this user".into()));
+    }
+
     let (a, b) = if current.id < target {
         (current.id, target)
     } else {

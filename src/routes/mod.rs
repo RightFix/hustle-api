@@ -8,6 +8,7 @@ use crate::AppState;
 pub mod admin;
 pub mod auth;
 pub mod avatar;
+pub mod blocks;
 pub mod gallery;
 pub mod gigs;
 pub mod health;
@@ -41,7 +42,12 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
             "/users/{user_id}/follow",
             axum::routing::post(users::follow_user).delete(users::unfollow_user),
         )
+        .route(
+            "/users/{user_id}/block",
+            axum::routing::post(blocks::block_user).delete(blocks::unblock_user),
+        )
         .route("/users/{user_id}/follow-info", get(users::follow_info))
+        .route("/users/me/blocks", get(blocks::list_my_blocks))
         .route("/posts", axum::routing::post(posts::create_post))
         .route("/posts/feed", get(posts::read_feed))
         .route(

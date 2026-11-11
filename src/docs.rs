@@ -40,6 +40,9 @@ impl Modify for SecurityAddon {
         crate::routes::users::me,
         crate::routes::users::update_me,
         crate::routes::users::read_user,
+        crate::routes::blocks::block_user,
+        crate::routes::blocks::unblock_user,
+        crate::routes::blocks::list_my_blocks,
         crate::routes::users::search_users,
         crate::routes::avatar::upload_avatar,
         crate::routes::avatar::delete_avatar,
@@ -133,6 +136,7 @@ impl Modify for SecurityAddon {
             crate::models::PaginatedAdminReports,
             crate::models::CreateReportRequest,
             crate::models::ResolveReportRequest,
+            crate::models::BlockedUserOut,
         )
     ),
     modifiers(&SecurityAddon),

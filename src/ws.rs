@@ -265,6 +265,12 @@ async fn send_message(
     body: &str,
 ) -> Result<(MessageOut, i32), String> {
     let recipient = conversation_peer(state, conversation_id, user_id).await?;
+    if crate::routes::blocks::is_blocked_either(&state.pool, user_id, recipient)
+        .await
+        .unwrap_or(false)
+    {
+        return Err("You cannot message this user".to_owned());
+    }
     // A message pushed straight into a live socket counts as delivered.
     let delivered = state.hub.is_online(recipient);
     let row = sqlx::query_as::<_, MessageRow>(

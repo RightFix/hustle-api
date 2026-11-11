@@ -715,3 +715,16 @@ pub struct ResolveReportRequest {
     pub status: String,
     pub admin_note: Option<String>,
 }
+
+
+// ----- Blocks -----
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct BlockedUserOut {
+    pub id: i32,
+    pub username: String,
+    pub bio: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    pub blocked_at: DateTime<Utc>,
+}

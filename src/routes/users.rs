@@ -283,6 +283,9 @@ pub async fn follow_user(
     if target.is_none() {
         return Err(AppError::NotFound("User not found".into()));
     }
+    if crate::routes::blocks::is_blocked_either(&state.pool, current.id, user_id).await? {
+        return Err(AppError::Forbidden("Cannot follow this user".into()));
+    }
     sqlx::query(
         "INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
     )
