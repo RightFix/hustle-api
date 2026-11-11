@@ -7,6 +7,7 @@ mod images;
 mod error;
 mod models;
 mod notify;
+mod rate_limit;
 mod routes;
 mod ws;
 

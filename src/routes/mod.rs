@@ -1,4 +1,5 @@
 use axum::{
+    middleware,
     routing::{delete, get, post, put},
     Router,
 };
@@ -20,14 +21,14 @@ pub mod users;
 
 pub fn router(upload_dir: &str) -> Router<AppState> {
     let api = Router::new()
-        .route("/auth/register", axum::routing::post(auth::register))
-        .route("/auth/login", axum::routing::post(auth::login))
+        .route("/auth/register", axum::routing::post(auth::register).route_layer(middleware::from_fn(crate::rate_limit::auth_strict)))
+        .route("/auth/login", axum::routing::post(auth::login).route_layer(middleware::from_fn(crate::rate_limit::auth_strict)))
         .route("/auth/logout", axum::routing::post(auth::logout))
         .route(
             "/auth/forgot-password",
-            axum::routing::post(auth::forgot_password),
+            axum::routing::post(auth::forgot_password).route_layer(middleware::from_fn(crate::rate_limit::auth_strict)),
         )
-        .route("/auth/reset-password", axum::routing::post(auth::reset_password))
+        .route("/auth/reset-password", axum::routing::post(auth::reset_password).route_layer(middleware::from_fn(crate::rate_limit::auth_strict)))
         .route("/auth/verify-email", get(auth::verify_email))
         .route(
             "/auth/resend-verification",
@@ -48,7 +49,7 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         )
         .route("/users/{user_id}/follow-info", get(users::follow_info))
         .route("/users/me/blocks", get(blocks::list_my_blocks))
-        .route("/posts", axum::routing::post(posts::create_post))
+        .route("/posts", axum::routing::post(posts::create_post).route_layer(middleware::from_fn(crate::rate_limit::write_actions)))
         .route("/posts/feed", get(posts::read_feed))
         .route(
             "/posts/{post_id}",
@@ -114,7 +115,7 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
             post(notifications::mark_read),
         )
         .route("/notifications/read-all", post(notifications::mark_all_read))
-        .route("/reports", post(reports::create_report));
+        .route("/reports", post(reports::create_report).route_layer(middleware::from_fn(crate::rate_limit::report_limit)));
 
     let gallery = Router::new()
         .route(
