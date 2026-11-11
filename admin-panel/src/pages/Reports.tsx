@@ -37,6 +37,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<number, string>>({})
+  const [actions, setActions] = useState<Record<number, { suspend: boolean; suspendReason: string; del: boolean }>>({})
 
   const load = async (p = page, s = status, t = targetType) => {
     setLoading(true); setError(null)
@@ -54,7 +55,13 @@ export default function Reports() {
   const resolve = async (id: number, next: 'resolved' | 'dismissed') => {
     try {
       setError(null)
-      await req(`/api/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify({ status: next, admin_note: notes[id] || undefined }) })
+      const a = actions[id] || { suspend: false, suspendReason: '', del: false }
+      const body: any = { status: next, admin_note: notes[id] || undefined }
+      if (next === 'resolved') {
+        if (a.suspend) { body.suspend_user = true; if (a.suspendReason) body.suspend_reason = a.suspendReason }
+        if (a.del) body.delete_target = true
+      }
+      await req(`/api/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
       await load(page)
     } catch (e: any) { setError(e.message) }
   }
@@ -105,6 +112,19 @@ export default function Reports() {
                   {r.status === 'open' ? (
                     <div className="grid" style={{ gap: 6 }}>
                       <input className="input" placeholder="Admin note (optional)" value={notes[r.id] || ''} onChange={e => setNotes(n => ({ ...n, [r.id]: e.target.value }))} />
+                      {r.target_type === 'user' && (
+                        <label className="muted" style={{ fontSize: 13 }}>
+                          <input type="checkbox" checked={actions[r.id]?.suspend || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: e.target.checked, suspendReason: a[r.id]?.suspendReason || '', del: a[r.id]?.del || false } }))} /> Suspend reported user
+                        </label>
+                      )}
+                      {actions[r.id]?.suspend && r.target_type === 'user' && (
+                        <input className="input" placeholder="Suspension reason" value={actions[r.id]?.suspendReason || ''} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: true, suspendReason: e.target.value, del: a[r.id]?.del || false } }))} />
+                      )}
+                      {(r.target_type === 'post' || r.target_type === 'gig') && (
+                        <label className="muted" style={{ fontSize: 13 }}>
+                          <input type="checkbox" checked={actions[r.id]?.del || false} onChange={e => setActions(a => ({ ...a, [r.id]: { suspend: a[r.id]?.suspend || false, suspendReason: a[r.id]?.suspendReason || '', del: e.target.checked } }))} /> Delete reported {r.target_type}
+                        </label>
+                      )}
                       <div className="row">
                         <button className="btn" onClick={() => resolve(r.id, 'resolved')}>Resolve</button>
                         <button className="btn secondary" onClick={() => resolve(r.id, 'dismissed')}>Dismiss</button>

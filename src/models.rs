@@ -718,6 +718,14 @@ pub struct ResolveReportRequest {
     /// "resolved" | "dismissed"
     pub status: String,
     pub admin_note: Option<String>,
+    /// If target is a user and resolving, optionally suspend the user.
+    #[serde(default)]
+    pub suspend_user: bool,
+    /// Reason for suspension when suspend_user is true.
+    pub suspend_reason: Option<String>,
+    /// If target is a post or gig and resolving, optionally delete the target content.
+    #[serde(default)]
+    pub delete_target: bool,
 }
 
 

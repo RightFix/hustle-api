@@ -226,6 +226,56 @@ pub async fn admin_resolve_report(
     }
     let note = clean_opt(payload.admin_note, MAX_DETAILS_LEN);
 
+    // Load report to know target for optional moderation actions.
+    let existing = sqlx::query_as::<_, ReportRow>(
+        "SELECT id, reporter_id, target_type, target_id, reason, details, status, \
+                admin_note, resolved_by, resolved_at, created_at \
+         FROM reports WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Report not found".into()))?;
+
+    if payload.delete_target && status == "resolved" {
+        match existing.target_type.as_str() {
+            "post" => {
+                let res = sqlx::query("DELETE FROM posts WHERE id = $1")
+                    .bind(existing.target_id).execute(&state.pool).await?;
+                if res.rows_affected() > 0 {
+                    crate::audit::log(&state, admin.id, "post.delete", "post", Some(existing.target_id), json!({"from_report": id})).await;
+                }
+            }
+            "gig" => {
+                let res = sqlx::query("DELETE FROM gigs WHERE id = $1")
+                    .bind(existing.target_id).execute(&state.pool).await?;
+                if res.rows_affected() > 0 {
+                    crate::audit::log(&state, admin.id, "gig.delete", "gig", Some(existing.target_id), json!({"from_report": id})).await;
+                }
+            }
+            "user" => {
+                return Err(AppError::BadRequest("Cannot delete a user target via delete_target; use suspend_user".into()));
+            }
+            _ => {}
+        }
+    }
+
+    if payload.suspend_user && status == "resolved" && existing.target_type == "user" {
+        if existing.target_id == admin.id {
+            return Err(AppError::BadRequest("You cannot suspend your own account".into()));
+        }
+        let reason = payload.suspend_reason.as_deref().map(str::trim).filter(|s| !s.is_empty())
+            .or(Some("Suspended from report resolution"));
+        sqlx::query(
+            "UPDATE users SET is_suspended = TRUE, suspended_reason = $1, suspended_at = now() WHERE id = $2",
+        )
+        .bind(reason)
+        .bind(existing.target_id)
+        .execute(&state.pool)
+        .await?;
+        crate::audit::log(&state, admin.id, "user.suspend", "user", Some(existing.target_id), json!({"from_report": id, "reason": reason})).await;
+    }
+
     let updated = sqlx::query(
         "UPDATE reports SET status = $1, admin_note = $2, resolved_by = $3, resolved_at = now() \
          WHERE id = $4",
@@ -253,7 +303,13 @@ pub async fn admin_resolve_report(
         if status == "resolved" { "report.resolve" } else { "report.dismiss" },
         "report",
         Some(id),
-        json!({"note": note, "target_type": row.target_type, "target_id": row.target_id}),
+        json!({
+            "note": note,
+            "target_type": row.target_type,
+            "target_id": row.target_id,
+            "suspend_user": payload.suspend_user,
+            "delete_target": payload.delete_target
+        }),
     )
     .await;
 
