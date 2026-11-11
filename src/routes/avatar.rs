@@ -47,7 +47,7 @@ pub async fn upload_avatar(
         .map_err(|e| AppError::BadRequest(format!("Invalid multipart body: {e}")))?
     {
         if field.name() != Some("file") || field.file_name().is_none() {
-            continue
+            continue;
         }
         let mut buf: Vec<u8> = Vec::new();
         while let Some(chunk) = field
@@ -76,25 +76,24 @@ pub async fn upload_avatar(
 
     let image = crate::images::process_jpeg_image(&raw, MAX_AVATAR_DIMENSION)?;
     let dir = avatar_dir(&state);
-    tokio::fs::create_dir_all(&dir)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "failed to create avatar dir");
-            AppError::Internal
-        })?;
-
-    let file_name = format!("{}.jpg", uuid::Uuid::new_v4());
-    tokio::fs::write(dir.join(&file_name), &image.bytes).await.map_err(|e| {
-        tracing::error!(error = %e, "failed to write avatar");
+    tokio::fs::create_dir_all(&dir).await.map_err(|e| {
+        tracing::error!(error = %e, "failed to create avatar dir");
         AppError::Internal
     })?;
 
-    let previous = sqlx::query_scalar::<_, Option<String>>(
-        "SELECT avatar_file FROM users WHERE id = $1",
-    )
-    .bind(current.id)
-    .fetch_one(&state.pool)
-    .await?;
+    let file_name = format!("{}.jpg", uuid::Uuid::new_v4());
+    tokio::fs::write(dir.join(&file_name), &image.bytes)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "failed to write avatar");
+            AppError::Internal
+        })?;
+
+    let previous =
+        sqlx::query_scalar::<_, Option<String>>("SELECT avatar_file FROM users WHERE id = $1")
+            .bind(current.id)
+            .fetch_one(&state.pool)
+            .await?;
 
     sqlx::query("UPDATE users SET avatar_file = $1 WHERE id = $2")
         .bind(&file_name)
@@ -123,12 +122,11 @@ pub async fn delete_avatar(
     State(state): State<AppState>,
     CurrentUser(current): CurrentUser,
 ) -> AppResult<Json<UserOut>> {
-    let previous = sqlx::query_scalar::<_, Option<String>>(
-        "SELECT avatar_file FROM users WHERE id = $1",
-    )
-    .bind(current.id)
-    .fetch_one(&state.pool)
-    .await?;
+    let previous =
+        sqlx::query_scalar::<_, Option<String>>("SELECT avatar_file FROM users WHERE id = $1")
+            .bind(current.id)
+            .fetch_one(&state.pool)
+            .await?;
 
     sqlx::query("UPDATE users SET avatar_file = NULL WHERE id = $1")
         .bind(current.id)

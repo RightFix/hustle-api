@@ -10,8 +10,9 @@ use crate::{
     auth::AdminUser,
     error::{AppError, AppResult},
     models::{
-        AdminAuditOut, AdminAuditRow, AdminGigOut, AdminPostOut, AdminUpdateUser, AdminUserDetail, Message, PaginatedAdminAudit, PaginatedAdminGigs,
-        PaginatedAdminPosts, PaginatedUsers, StatsOut, UserOut, UserRow,
+        AdminAuditOut, AdminAuditRow, AdminGigOut, AdminPostOut, AdminUpdateUser, AdminUserDetail,
+        Message, PaginatedAdminAudit, PaginatedAdminGigs, PaginatedAdminPosts, PaginatedUsers,
+        StatsOut, UserOut, UserRow,
     },
     AppState,
 };
@@ -30,8 +31,12 @@ pub struct PageQuery {
     pub status: Option<String>,
 }
 
-fn default_page() -> u32 { 1 }
-fn default_per_page() -> u32 { 20 }
+fn default_page() -> u32 {
+    1
+}
+fn default_per_page() -> u32 {
+    20
+}
 
 fn page_bounds(q: &PageQuery) -> (u32, u32, i64) {
     let page = q.page.max(1);
@@ -40,7 +45,8 @@ fn page_bounds(q: &PageQuery) -> (u32, u32, i64) {
     (page, per_page, offset)
 }
 
-const USER_SELECT: &str = "SELECT id, email, username, hashed_password, bio, is_admin, account_type, \
+const USER_SELECT: &str =
+    "SELECT id, email, username, hashed_password, bio, is_admin, account_type, \
     location, availability, expected_rate, languages, avatar_file, email_verified_at, \
     email_messages_enabled, is_suspended, suspended_reason, suspended_at, created_at FROM users";
 
@@ -57,21 +63,28 @@ const USER_SELECT: &str = "SELECT id, email, username, hashed_password, bio, is_
 )]
 pub async fn stats(State(state): State<AppState>, _admin: AdminUser) -> AppResult<Json<StatsOut>> {
     let user_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
-        .fetch_one(&state.pool).await?;
+        .fetch_one(&state.pool)
+        .await?;
     let post_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts")
-        .fetch_one(&state.pool).await?;
+        .fetch_one(&state.pool)
+        .await?;
     let gig_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM gigs")
-        .fetch_one(&state.pool).await?;
+        .fetch_one(&state.pool)
+        .await?;
     let conversation_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM conversations")
-        .fetch_one(&state.pool).await?;
+        .fetch_one(&state.pool)
+        .await?;
     let message_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM messages")
-        .fetch_one(&state.pool).await?;
-    let suspended_user_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM users WHERE is_suspended",
-    ).fetch_one(&state.pool).await?;
-    let unverified_user_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM users WHERE email_verified_at IS NULL",
-    ).fetch_one(&state.pool).await?;
+        .fetch_one(&state.pool)
+        .await?;
+    let suspended_user_count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE is_suspended")
+            .fetch_one(&state.pool)
+            .await?;
+    let unverified_user_count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE email_verified_at IS NULL")
+            .fetch_one(&state.pool)
+            .await?;
 
     Ok(Json(StatsOut {
         user_count,
@@ -102,7 +115,12 @@ pub async fn list_users(
     Query(query): Query<PageQuery>,
 ) -> AppResult<Json<PaginatedUsers>> {
     let (page, per_page, offset) = page_bounds(&query);
-    let q = query.q.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| format!("%{s}%"));
+    let q = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{s}%"));
     let suspended: Option<bool> = match query.status.as_deref() {
         Some("suspended") => Some(true),
         Some("active") => Some(false),
@@ -162,16 +180,26 @@ pub async fn get_user(
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
-    let post_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts WHERE author_id = $1")
-        .bind(id).fetch_one(&state.pool).await?;
+    let post_count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts WHERE author_id = $1")
+            .bind(id)
+            .fetch_one(&state.pool)
+            .await?;
     let gig_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM gigs WHERE poster_id = $1")
-        .bind(id).fetch_one(&state.pool).await?;
-    let application_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM gig_applications WHERE worker_id = $1",
-    ).bind(id).fetch_one(&state.pool).await?;
+        .bind(id)
+        .fetch_one(&state.pool)
+        .await?;
+    let application_count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM gig_applications WHERE worker_id = $1")
+            .bind(id)
+            .fetch_one(&state.pool)
+            .await?;
     let conversation_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM conversations WHERE user_a = $1 OR user_b = $1",
-    ).bind(id).fetch_one(&state.pool).await?;
+    )
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await?;
 
     Ok(Json(AdminUserDetail {
         user: UserOut::from(user),
@@ -209,29 +237,70 @@ pub async fn update_user(
 
     if let Some(make_admin) = payload.is_admin {
         if admin.id == id && !make_admin {
-            return Err(AppError::BadRequest("You cannot remove your own admin access".into()));
+            return Err(AppError::BadRequest(
+                "You cannot remove your own admin access".into(),
+            ));
         }
         sqlx::query("UPDATE users SET is_admin = $1 WHERE id = $2")
-            .bind(make_admin).bind(id).execute(&state.pool).await?;
-        crate::audit::log(&state, admin.id, if make_admin { "user.promote_admin" } else { "user.demote_admin" }, "user", Some(id), json!({})).await;
+            .bind(make_admin)
+            .bind(id)
+            .execute(&state.pool)
+            .await?;
+        crate::audit::log(
+            &state,
+            admin.id,
+            if make_admin {
+                "user.promote_admin"
+            } else {
+                "user.demote_admin"
+            },
+            "user",
+            Some(id),
+            json!({}),
+        )
+        .await;
     }
     if let Some(verified) = payload.email_verified {
         if verified {
             sqlx::query("UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1")
                 .bind(id).execute(&state.pool).await?;
-            crate::audit::log(&state, admin.id, "user.verify_email", "user", Some(id), json!({})).await;
+            crate::audit::log(
+                &state,
+                admin.id,
+                "user.verify_email",
+                "user",
+                Some(id),
+                json!({}),
+            )
+            .await;
         } else {
             sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1")
-                .bind(id).execute(&state.pool).await?;
-            crate::audit::log(&state, admin.id, "user.unverify_email", "user", Some(id), json!({})).await;
+                .bind(id)
+                .execute(&state.pool)
+                .await?;
+            crate::audit::log(
+                &state,
+                admin.id,
+                "user.unverify_email",
+                "user",
+                Some(id),
+                json!({}),
+            )
+            .await;
         }
     }
     if let Some(suspend) = payload.is_suspended {
         if suspend {
             if admin.id == id {
-                return Err(AppError::BadRequest("You cannot suspend your own account".into()));
+                return Err(AppError::BadRequest(
+                    "You cannot suspend your own account".into(),
+                ));
             }
-            let reason = payload.suspended_reason.as_deref().map(str::trim).filter(|s| !s.is_empty());
+            let reason = payload
+                .suspended_reason
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
             sqlx::query(
                 "UPDATE users SET is_suspended = TRUE, suspended_reason = $1, suspended_at = now() WHERE id = $2",
             )
@@ -239,7 +308,15 @@ pub async fn update_user(
             .bind(id)
             .execute(&state.pool)
             .await?;
-            crate::audit::log(&state, admin.id, "user.suspend", "user", Some(id), json!({"reason": reason})).await;
+            crate::audit::log(
+                &state,
+                admin.id,
+                "user.suspend",
+                "user",
+                Some(id),
+                json!({"reason": reason}),
+            )
+            .await;
         } else {
             sqlx::query(
                 "UPDATE users SET is_suspended = FALSE, suspended_reason = NULL, suspended_at = NULL WHERE id = $1",
@@ -247,14 +324,29 @@ pub async fn update_user(
             .bind(id)
             .execute(&state.pool)
             .await?;
-            crate::audit::log(&state, admin.id, "user.unsuspend", "user", Some(id), json!({})).await;
+            crate::audit::log(
+                &state,
+                admin.id,
+                "user.unsuspend",
+                "user",
+                Some(id),
+                json!({}),
+            )
+            .await;
         }
     } else if let Some(reason) = payload.suspended_reason {
         if user.is_suspended {
             let reason = reason.trim();
-            let reason = if reason.is_empty() { None } else { Some(reason.to_owned()) };
+            let reason = if reason.is_empty() {
+                None
+            } else {
+                Some(reason.to_owned())
+            };
             sqlx::query("UPDATE users SET suspended_reason = $1 WHERE id = $2")
-                .bind(reason.as_deref()).bind(id).execute(&state.pool).await?;
+                .bind(reason.as_deref())
+                .bind(id)
+                .execute(&state.pool)
+                .await?;
         }
     }
 
@@ -283,7 +375,9 @@ pub async fn delete_user(
     Path(id): Path<i32>,
 ) -> AppResult<Json<Message>> {
     if admin.id == id {
-        return Err(AppError::BadRequest("You cannot delete your own account".into()));
+        return Err(AppError::BadRequest(
+            "You cannot delete your own account".into(),
+        ));
     }
     let res = sqlx::query("DELETE FROM users WHERE id = $1")
         .bind(id)
@@ -293,7 +387,9 @@ pub async fn delete_user(
         return Err(AppError::NotFound("User not found".into()));
     }
     crate::audit::log(&state, admin.id, "user.delete", "user", Some(id), json!({})).await;
-    Ok(Json(Message { detail: "User deleted".into() }))
+    Ok(Json(Message {
+        detail: "User deleted".into(),
+    }))
 }
 
 #[utoipa::path(
@@ -310,11 +406,19 @@ pub async fn list_posts(
     Query(query): Query<PageQuery>,
 ) -> AppResult<Json<PaginatedAdminPosts>> {
     let (page, per_page, offset) = page_bounds(&query);
-    let q = query.q.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| format!("%{s}%"));
+    let q = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{s}%"));
 
     let total = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM posts p WHERE ($1::text IS NULL OR p.content ILIKE $1)",
-    ).bind(&q).fetch_one(&state.pool).await?;
+    )
+    .bind(&q)
+    .fetch_one(&state.pool)
+    .await?;
 
     let rows = sqlx::query_as::<_, (i32, i32, String, String, chrono::DateTime<chrono::Utc>)>(
         "SELECT p.id, p.author_id, u.username, p.content, p.created_at \
@@ -322,14 +426,28 @@ pub async fn list_posts(
          WHERE ($1::text IS NULL OR p.content ILIKE $1) \
          ORDER BY p.id DESC LIMIT $2 OFFSET $3",
     )
-    .bind(&q).bind(per_page as i64).bind(offset)
-    .fetch_all(&state.pool).await?;
+    .bind(&q)
+    .bind(per_page as i64)
+    .bind(offset)
+    .fetch_all(&state.pool)
+    .await?;
 
     Ok(Json(PaginatedAdminPosts {
-        items: rows.into_iter().map(|(id, author_id, author_username, content, created_at)| {
-            AdminPostOut { id, author_id, author_username, content, created_at }
-        }).collect(),
-        total, page, per_page,
+        items: rows
+            .into_iter()
+            .map(
+                |(id, author_id, author_username, content, created_at)| AdminPostOut {
+                    id,
+                    author_id,
+                    author_username,
+                    content,
+                    created_at,
+                },
+            )
+            .collect(),
+        total,
+        page,
+        per_page,
     }))
 }
 
@@ -350,12 +468,16 @@ pub async fn delete_post(
     Path(id): Path<i32>,
 ) -> AppResult<Json<Message>> {
     let res = sqlx::query("DELETE FROM posts WHERE id = $1")
-        .bind(id).execute(&state.pool).await?;
+        .bind(id)
+        .execute(&state.pool)
+        .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("Post not found".into()));
     }
     crate::audit::log(&state, admin.id, "post.delete", "post", Some(id), json!({})).await;
-    Ok(Json(Message { detail: "Post deleted".into() }))
+    Ok(Json(Message {
+        detail: "Post deleted".into(),
+    }))
 }
 
 #[utoipa::path(
@@ -372,7 +494,12 @@ pub async fn list_gigs(
     Query(query): Query<PageQuery>,
 ) -> AppResult<Json<PaginatedAdminGigs>> {
     let (page, per_page, offset) = page_bounds(&query);
-    let q = query.q.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| format!("%{s}%"));
+    let q = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{s}%"));
 
     let total = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM gigs g WHERE ($1::text IS NULL OR g.title ILIKE $1 OR g.description ILIKE $1)",
@@ -388,10 +515,37 @@ pub async fn list_gigs(
     .fetch_all(&state.pool).await?;
 
     Ok(Json(PaginatedAdminGigs {
-        items: rows.into_iter().map(|(id, poster_id, poster_username, title, description, collar, status, location, created_at)| {
-            AdminGigOut { id, poster_id, poster_username, title, description, collar, status, location, created_at }
-        }).collect(),
-        total, page, per_page,
+        items: rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    poster_id,
+                    poster_username,
+                    title,
+                    description,
+                    collar,
+                    status,
+                    location,
+                    created_at,
+                )| {
+                    AdminGigOut {
+                        id,
+                        poster_id,
+                        poster_username,
+                        title,
+                        description,
+                        collar,
+                        status,
+                        location,
+                        created_at,
+                    }
+                },
+            )
+            .collect(),
+        total,
+        page,
+        per_page,
     }))
 }
 
@@ -412,14 +566,17 @@ pub async fn delete_gig(
     Path(id): Path<i32>,
 ) -> AppResult<Json<Message>> {
     let res = sqlx::query("DELETE FROM gigs WHERE id = $1")
-        .bind(id).execute(&state.pool).await?;
+        .bind(id)
+        .execute(&state.pool)
+        .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("Gig not found".into()));
     }
     crate::audit::log(&state, admin.id, "gig.delete", "gig", Some(id), json!({})).await;
-    Ok(Json(Message { detail: "Gig deleted".into() }))
+    Ok(Json(Message {
+        detail: "Gig deleted".into(),
+    }))
 }
-
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct AuditQuery {
@@ -452,7 +609,11 @@ pub async fn list_audit(
     let per_page = q.per_page.clamp(1, 100);
     let offset = (page - 1) as i64 * per_page as i64;
     let action = q.action.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    let target_type = q.target_type.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let target_type = q
+        .target_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
 
     let total = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM admin_audit_logs a \

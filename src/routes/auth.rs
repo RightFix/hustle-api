@@ -1,22 +1,26 @@
-use axum::{extract::{Query, State}, http::StatusCode, Json};
-use serde::Deserialize;
-use utoipa::IntoParams;
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    Json,
+};
 use axum_extra::extract::{
     cookie::{Cookie, SameSite},
     CookieJar,
 };
 use chrono::{Duration, Utc};
 use rand::RngCore;
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use utoipa::IntoParams;
 use validator::ValidateEmail;
 
 use crate::{
-    auth::{self, COOKIE_NAME, CurrentUser},
+    auth::{self, CurrentUser, COOKIE_NAME},
     email,
     error::{AppError, AppResult},
     models::{
-        ForgotPasswordRequest, LoginRequest, Message, RegisterRequest, ResetPasswordRequest,
-        Token, UserOut, UserRow,
+        ForgotPasswordRequest, LoginRequest, Message, RegisterRequest, ResetPasswordRequest, Token,
+        UserOut, UserRow,
     },
     AppState,
 };
@@ -40,7 +44,9 @@ fn clear_auth_cookie() -> Cookie<'static> {
 async fn send_verification(state: &AppState, user: &UserRow) {
     match auth::create_verification_token(user.id, &state.config.secret_key) {
         Ok(token) => {
-            if let Err(err) = email::send_verification_email(&state.config, &user.email, &token).await {
+            if let Err(err) =
+                email::send_verification_email(&state.config, &user.email, &token).await
+            {
                 tracing::warn!(error = %err, user_id = user.id, "verification email failed");
             }
         }
@@ -66,13 +72,12 @@ pub async fn register(
     if !payload.email.validate_email() {
         return Err(AppError::Unprocessable("Invalid email address".into()));
     }
-    let existing = sqlx::query_scalar::<_, i32>(
-        "SELECT id FROM users WHERE email = $1 OR username = $2",
-    )
-    .bind(&payload.email)
-    .bind(&payload.username)
-    .fetch_optional(&state.pool)
-    .await?;
+    let existing =
+        sqlx::query_scalar::<_, i32>("SELECT id FROM users WHERE email = $1 OR username = $2")
+            .bind(&payload.email)
+            .bind(&payload.username)
+            .fetch_optional(&state.pool)
+            .await?;
     if existing.is_some() {
         return Err(AppError::Conflict(
             "Email or username already registered".into(),
@@ -121,18 +126,12 @@ pub async fn login(
     .fetch_optional(&state.pool)
     .await?;
     let valid = match &user {
-        Some(u) => {
-            auth::verify_password(payload.password, u.hashed_password.clone()).await?
-        }
+        Some(u) => auth::verify_password(payload.password, u.hashed_password.clone()).await?,
         None => false,
     };
     let user = match (user, valid) {
         (Some(u), true) => u,
-        _ => {
-            return Err(AppError::Unauthorized(
-                "Incorrect email or password".into(),
-            ))
-        }
+        _ => return Err(AppError::Unauthorized("Incorrect email or password".into())),
     };
     if user.is_suspended {
         let msg = user
@@ -166,8 +165,7 @@ pub async fn logout(jar: CookieJar) -> (CookieJar, StatusCode) {
     (jar.remove(clear_auth_cookie()), StatusCode::NO_CONTENT)
 }
 
-const FORGOT_SUCCESS: &str =
-    "If an account with that email exists, a reset link has been sent.";
+const FORGOT_SUCCESS: &str = "If an account with that email exists, a reset link has been sent.";
 
 #[utoipa::path(
     post,
@@ -286,10 +284,12 @@ pub async fn verify_email(
 ) -> AppResult<Json<Message>> {
     let user_id = auth::decode_verification_token(&query.token, &state.config.secret_key)?;
 
-    let updated = sqlx::query("UPDATE users SET email_verified_at = now() WHERE id = $1 AND email_verified_at IS NULL")
-        .bind(user_id)
-        .execute(&state.pool)
-        .await?;
+    let updated = sqlx::query(
+        "UPDATE users SET email_verified_at = now() WHERE id = $1 AND email_verified_at IS NULL",
+    )
+    .bind(user_id)
+    .execute(&state.pool)
+    .await?;
 
     if updated.rows_affected() == 0 {
         // Already verified is idempotently accepted so links stay shareable/reloadable.
@@ -325,5 +325,7 @@ pub async fn resend_verification(
         return Ok(Json(Message::new("Email already verified.")));
     }
     send_verification(&state, &current).await;
-    Ok(Json(Message::new("If this account exists, a verification email has been sent.")))
+    Ok(Json(Message::new(
+        "If this account exists, a verification email has been sent.",
+    )))
 }

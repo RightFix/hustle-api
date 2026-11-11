@@ -121,9 +121,7 @@ fn mp4_duration_seconds(buf: &[u8]) -> Option<u32> {
 }
 
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 fn be_u32(buf: &[u8], at: usize) -> Option<u32> {
@@ -132,9 +130,8 @@ fn be_u32(buf: &[u8], at: usize) -> Option<u32> {
 }
 
 fn be_u64(buf: &[u8], at: usize) -> Option<u64> {
-    buf.get(at..at + 8).map(|b| {
-        u64::from_be_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]])
-    })
+    buf.get(at..at + 8)
+        .map(|b| u64::from_be_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]))
 }
 
 // ----- handlers -----
@@ -161,11 +158,10 @@ pub async fn upload_gallery_item(
     CurrentUser(current): CurrentUser,
     mut multipart: Multipart,
 ) -> AppResult<(axum::http::StatusCode, Json<GalleryItemOut>)> {
-    let count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM gallery_items WHERE user_id = $1")
-            .bind(current.id)
-            .fetch_one(&state.pool)
-            .await?;
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM gallery_items WHERE user_id = $1")
+        .bind(current.id)
+        .fetch_one(&state.pool)
+        .await?;
     if count >= MAX_ITEMS_PER_USER {
         return Err(AppError::Conflict(format!(
             "Gallery limit of {MAX_ITEMS_PER_USER} items reached — delete something first"
@@ -239,18 +235,18 @@ pub async fn upload_gallery_item(
 
     // Write to disk first, then record; clean up on DB failure.
     let dir = gallery_dir(&state);
-    tokio::fs::create_dir_all(&dir)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "failed to create upload dir");
-            AppError::Internal
-        })?;
-    let file_name = format!("{}.{}", uuid::Uuid::new_v4(), processed.ext);
-    let path = dir.join(&file_name);
-    tokio::fs::write(&path, &processed.bytes).await.map_err(|e| {
-        tracing::error!(error = %e, "failed to write uploaded file");
+    tokio::fs::create_dir_all(&dir).await.map_err(|e| {
+        tracing::error!(error = %e, "failed to create upload dir");
         AppError::Internal
     })?;
+    let file_name = format!("{}.{}", uuid::Uuid::new_v4(), processed.ext);
+    let path = dir.join(&file_name);
+    tokio::fs::write(&path, &processed.bytes)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "failed to write uploaded file");
+            AppError::Internal
+        })?;
 
     let row = sqlx::query_as::<_, GalleryItemRow>(
         "INSERT INTO gallery_items \
@@ -314,7 +310,9 @@ pub async fn list_gallery(
     .bind(user_id)
     .fetch_all(&state.pool)
     .await?;
-    Ok(Json(rows.into_iter().map(GalleryItemRow::into_out).collect()))
+    Ok(Json(
+        rows.into_iter().map(GalleryItemRow::into_out).collect(),
+    ))
 }
 
 #[utoipa::path(

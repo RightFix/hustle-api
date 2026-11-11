@@ -27,9 +27,8 @@ impl Config {
         Self {
             project_name: get("PROJECT_NAME", "Hustle"),
             environment: get("ENVIRONMENT", "development"),
-            database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
-                "postgresql://hustle:hustle@localhost:5432/hustle".to_owned()
-            }),
+            database_url: env::var("DATABASE_URL")
+                .unwrap_or_else(|_| "postgresql://hustle:hustle@localhost:5432/hustle".to_owned()),
             secret_key: get("SECRET_KEY", "change-me-in-production"),
             access_token_expire_minutes: env::var("ACCESS_TOKEN_EXPIRE_MINUTES")
                 .ok()

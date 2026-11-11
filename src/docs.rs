@@ -4,13 +4,12 @@ use utoipa::{
 };
 
 use crate::models::{
-    ApplicantOut, CreateGigRequest, CreatePostRequest, FollowInfo, ForgotPasswordRequest,
-    GigOut, LoginRequest, Message, PaginatedGigs, PaginatedPosts, PaginatedUsers,
-    PostOut, RegisterRequest, ResetPasswordRequest, SkillOut, StatsOut, Token,
-    UpdateAccountRequest, UpdateGigStatusRequest, UpdateSkillsRequest, UserOut,
-    ApplyGigRequest, ConversationOut, MessageBrief, MessageOut, StartConversationRequest,
-    UserBrief, SendMessageRequest, NotificationOut, NotificationPage, UnreadCountOut,
-    GalleryItemOut,
+    ApplicantOut, ApplyGigRequest, ConversationOut, CreateGigRequest, CreatePostRequest,
+    FollowInfo, ForgotPasswordRequest, GalleryItemOut, GigOut, LoginRequest, Message, MessageBrief,
+    MessageOut, NotificationOut, NotificationPage, PaginatedGigs, PaginatedPosts, PaginatedUsers,
+    PostOut, RegisterRequest, ResetPasswordRequest, SendMessageRequest, SkillOut,
+    StartConversationRequest, StatsOut, Token, UnreadCountOut, UpdateAccountRequest,
+    UpdateGigStatusRequest, UpdateSkillsRequest, UserBrief, UserOut,
 };
 
 struct SecurityAddon;

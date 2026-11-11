@@ -3,9 +3,7 @@ use std::io::Cursor;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageFormat};
 
-use crate::{
-    error::{AppError, AppResult},
-};
+use crate::error::{AppError, AppResult};
 
 const MAX_RAW_BYTES: usize = 10 * 1024 * 1024;
 const JPEG_QUALITY: u8 = 85;
@@ -31,7 +29,10 @@ pub fn process_jpeg_image(raw: &[u8], max_dimension: u32) -> AppResult<JpegImage
     let format = image::guess_format(raw).map_err(|_| {
         AppError::Unprocessable("Only JPEG, PNG, or WebP images are supported".into())
     })?;
-    if !matches!(format, ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::WebP) {
+    if !matches!(
+        format,
+        ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::WebP
+    ) {
         return Err(AppError::Unprocessable(
             "Only JPEG, PNG, or WebP images are supported".into(),
         ));
@@ -51,11 +52,7 @@ pub fn process_jpeg_image(raw: &[u8], max_dimension: u32) -> AppResult<JpegImage
     for (x, y, p) in rgba.enumerate_pixels() {
         let a = p[3] as u32;
         let blend = |c: u8| ((c as u32 * a + 255 * (255 - a)) / 255) as u8;
-        rgb.put_pixel(
-            x,
-            y,
-            image::Rgb([blend(p[0]), blend(p[1]), blend(p[2])]),
-        );
+        rgb.put_pixel(x, y, image::Rgb([blend(p[0]), blend(p[1]), blend(p[2])]));
     }
     let flat = DynamicImage::ImageRgb8(rgb);
     let (width, height) = (flat.width(), flat.height());

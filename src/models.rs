@@ -537,7 +537,6 @@ impl GalleryItemRow {
     }
 }
 
-
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct AdminUpdateUser {
     /// Suspend or unsuspend the account.
@@ -597,7 +596,6 @@ pub struct PaginatedAdminGigs {
     pub page: u32,
     pub per_page: u32,
 }
-
 
 // ----- Reports -----
 
@@ -744,7 +742,6 @@ pub struct ResolveReportRequest {
     pub delete_user: bool,
 }
 
-
 // ----- Blocks -----
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -756,7 +753,6 @@ pub struct BlockedUserOut {
     pub avatar_url: Option<String>,
     pub blocked_at: DateTime<Utc>,
 }
-
 
 // ----- Admin audit -----
 
@@ -806,7 +802,6 @@ pub struct PaginatedAdminAudit {
     pub page: u32,
     pub per_page: u32,
 }
-
 
 // ----- Ratings (Round 4) -----
 

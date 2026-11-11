@@ -1,0 +1,13 @@
+target/
+.git/
+.gitignore
+.env
+uploads/
+admin-panel/node_modules/
+admin-panel/dist/
+hustle-backend
+README.md
+docker-compose.yml
+docker-compose.prod.yml
+scripts/
+.github/

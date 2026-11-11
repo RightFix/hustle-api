@@ -106,7 +106,16 @@ pub async fn list_my_blocks(
     State(state): State<AppState>,
     CurrentUser(current): CurrentUser,
 ) -> AppResult<Json<Vec<BlockedUserOut>>> {
-    let rows = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, chrono::DateTime<chrono::Utc>)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            i32,
+            String,
+            Option<String>,
+            Option<String>,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         "SELECT u.id, u.username, u.bio, u.avatar_file, b.created_at \
          FROM user_blocks b JOIN users u ON u.id = b.blocked_id \
          WHERE b.blocker_id = $1 ORDER BY b.created_at DESC",
@@ -117,13 +126,15 @@ pub async fn list_my_blocks(
 
     let out = rows
         .into_iter()
-        .map(|(id, username, bio, avatar_file, created_at)| BlockedUserOut {
-            id,
-            username,
-            bio,
-            avatar_url: avatar_file.map(|f| format!("/media/avatars/{f}")),
-            blocked_at: created_at,
-        })
+        .map(
+            |(id, username, bio, avatar_file, created_at)| BlockedUserOut {
+                id,
+                username,
+                bio,
+                avatar_url: avatar_file.map(|f| format!("/media/avatars/{f}")),
+                blocked_at: created_at,
+            },
+        )
         .collect();
     Ok(Json(out))
 }

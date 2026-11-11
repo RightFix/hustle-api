@@ -109,11 +109,12 @@ pub async fn unread_count(
     State(state): State<AppState>,
     CurrentUser(current): CurrentUser,
 ) -> AppResult<Json<UnreadCountOut>> {
-    let count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read_at IS NULL")
-            .bind(current.id)
-            .fetch_one(&state.pool)
-            .await?;
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read_at IS NULL",
+    )
+    .bind(current.id)
+    .fetch_one(&state.pool)
+    .await?;
     Ok(Json(UnreadCountOut { count }))
 }
 

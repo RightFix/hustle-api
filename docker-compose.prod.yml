@@ -1,0 +1,48 @@
+# Production-oriented compose (VPS). Provide secrets via a .env file or environment.
+# Usage:
+#   cp .env.example .env.prod   # fill in real values
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# This extends the base compose (db). Mailpit from base is dev-only; omit it in prod by
+# not starting the mail service and pointing SMTP_* at a real provider.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hustle-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      FRONTEND_URL: ${FRONTEND_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - hustle_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  db:
+    restart: unless-stopped
+    ports: [] # do not expose Postgres publicly in prod; remove this override if you need host access
+
+volumes:
+  hustle_uploads:

@@ -179,8 +179,12 @@ pub struct GigListQuery {
     pub per_page: u32,
 }
 
-fn default_page() -> u32 { 1 }
-fn default_per_page() -> u32 { 20 }
+fn default_page() -> u32 {
+    1
+}
+fn default_per_page() -> u32 {
+    20
+}
 
 #[utoipa::path(
     get,
@@ -205,8 +209,18 @@ pub async fn list_gigs(
     ) {
         return Err(AppError::BadRequest("Invalid status filter".into()));
     }
-    let pattern = query.q.as_deref().map(str::trim).filter(|t| !t.is_empty()).map(|t| format!("%{t}%"));
-    let location = query.location.as_deref().map(str::trim).filter(|t| !t.is_empty()).map(|t| format!("%{t}%"));
+    let pattern = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| format!("%{t}%"));
+    let location = query
+        .location
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| format!("%{t}%"));
     let page = query.page.max(1);
     let per_page = query.per_page.clamp(1, 100);
     let offset = (page - 1) as i64 * per_page as i64;
@@ -285,7 +299,8 @@ pub async fn update_gig(
     // Poster may manually close/reopen only when not in the hiring/completion flow.
     if !matches!(payload.status.as_str(), "open" | "closed") {
         return Err(AppError::Unprocessable(
-            "Status can only be set to open or closed here; use accept/complete for hiring flow".into(),
+            "Status can only be set to open or closed here; use accept/complete for hiring flow"
+                .into(),
         ));
     }
     if matches!(meta.status.as_str(), "in_progress" | "completed") {
@@ -360,18 +375,27 @@ pub async fn apply_gig(
     }
     let meta = gig_meta(&state, gig_id).await?;
     if meta.status != "open" {
-        return Err(AppError::BadRequest("This gig is not accepting applications".into()));
+        return Err(AppError::BadRequest(
+            "This gig is not accepting applications".into(),
+        ));
     }
     if meta.poster_id == current.id {
-        return Err(AppError::BadRequest("You cannot apply to your own gig".into()));
+        return Err(AppError::BadRequest(
+            "You cannot apply to your own gig".into(),
+        ));
     }
     if crate::routes::blocks::is_blocked_either(&state.pool, current.id, meta.poster_id).await? {
         return Err(AppError::Forbidden("Cannot interact with this user".into()));
     }
-    let message = payload.message.map(|m| m.trim().to_owned()).filter(|m| !m.is_empty());
+    let message = payload
+        .message
+        .map(|m| m.trim().to_owned())
+        .filter(|m| !m.is_empty());
     if let Some(m) = &message {
         if m.len() > 500 {
-            return Err(AppError::Unprocessable("Message must be 500 characters or fewer".into()));
+            return Err(AppError::Unprocessable(
+                "Message must be 500 characters or fewer".into(),
+            ));
         }
     }
 
@@ -391,7 +415,15 @@ pub async fn apply_gig(
         return Err(AppError::Conflict("Already applied to this gig".into()));
     }
 
-    crate::notify::notify(&state, meta.poster_id, current.id, "gig_apply", Some("gig"), Some(gig_id)).await;
+    crate::notify::notify(
+        &state,
+        meta.poster_id,
+        current.id,
+        "gig_apply",
+        Some("gig"),
+        Some(gig_id),
+    )
+    .await;
     Ok((StatusCode::CREATED, Json(Message::new("Application sent."))))
 }
 
@@ -405,11 +437,13 @@ pub async fn withdraw_gig(
     CurrentUser(current): CurrentUser,
     Path(gig_id): Path<i32>,
 ) -> AppResult<StatusCode> {
-    sqlx::query("DELETE FROM gig_applications WHERE gig_id = $1 AND worker_id = $2 AND status = 'pending'")
-        .bind(gig_id)
-        .bind(current.id)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query(
+        "DELETE FROM gig_applications WHERE gig_id = $1 AND worker_id = $2 AND status = 'pending'",
+    )
+    .bind(gig_id)
+    .bind(current.id)
+    .execute(&state.pool)
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -426,10 +460,17 @@ pub async fn save_gig(
     Path(gig_id): Path<i32>,
 ) -> AppResult<StatusCode> {
     let exists = sqlx::query_scalar::<_, i32>("SELECT id FROM gigs WHERE id = $1")
-        .bind(gig_id).fetch_optional(&state.pool).await?;
-    if exists.is_none() { return Err(AppError::NotFound("Gig not found".into())); }
+        .bind(gig_id)
+        .fetch_optional(&state.pool)
+        .await?;
+    if exists.is_none() {
+        return Err(AppError::NotFound("Gig not found".into()));
+    }
     sqlx::query("INSERT INTO saved_gigs (user_id, gig_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
-        .bind(current.id).bind(gig_id).execute(&state.pool).await?;
+        .bind(current.id)
+        .bind(gig_id)
+        .execute(&state.pool)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -444,17 +485,26 @@ pub async fn unsave_gig(
     Path(gig_id): Path<i32>,
 ) -> AppResult<StatusCode> {
     let exists = sqlx::query_scalar::<_, i32>("SELECT id FROM gigs WHERE id = $1")
-        .bind(gig_id).fetch_optional(&state.pool).await?;
-    if exists.is_none() { return Err(AppError::NotFound("Gig not found".into())); }
+        .bind(gig_id)
+        .fetch_optional(&state.pool)
+        .await?;
+    if exists.is_none() {
+        return Err(AppError::NotFound("Gig not found".into()));
+    }
     sqlx::query("DELETE FROM saved_gigs WHERE user_id = $1 AND gig_id = $2")
-        .bind(current.id).bind(gig_id).execute(&state.pool).await?;
+        .bind(current.id)
+        .bind(gig_id)
+        .execute(&state.pool)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SavedGigsQuery {
-    #[serde(default = "default_page")] pub page: u32,
-    #[serde(default = "default_per_page")] pub per_page: u32,
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_per_page")]
+    pub per_page: u32,
 }
 
 #[utoipa::path(
@@ -471,17 +521,24 @@ pub async fn saved_gigs(
     let per_page = query.per_page.clamp(1, 100);
     let offset = (page - 1) as i64 * per_page as i64;
     let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM saved_gigs WHERE user_id = $1")
-        .bind(current.id).fetch_one(&state.pool).await?;
+        .bind(current.id)
+        .fetch_one(&state.pool)
+        .await?;
     let rows = sqlx::query_as::<_, GigViewRow>(&format!(
         "SELECT {GIG_COLUMNS} FROM gigs g \
          INNER JOIN saved_gigs sg ON sg.gig_id = g.id AND sg.user_id = $1 \
          ORDER BY sg.created_at DESC LIMIT $2 OFFSET $3"
     ))
-    .bind(current.id).bind(per_page as i64).bind(offset)
-    .fetch_all(&state.pool).await?;
+    .bind(current.id)
+    .bind(per_page as i64)
+    .bind(offset)
+    .fetch_all(&state.pool)
+    .await?;
     Ok(Json(PaginatedGigs {
         items: rows.into_iter().map(GigViewRow::into_out).collect(),
-        total, page, per_page,
+        total,
+        page,
+        per_page,
     }))
 }
 
@@ -514,11 +571,19 @@ pub async fn list_applicants(
     .bind(current.id)
     .fetch_all(&state.pool)
     .await?;
-    Ok(Json(rows.into_iter().map(|r| ApplicantOut {
-        id: r.id, username: r.username, bio: r.bio,
-        avatar_url: r.avatar_file.map(|f| format!("/media/avatars/{f}")),
-        message: r.message, applied_at: r.applied_at, status: r.status,
-    }).collect()))
+    Ok(Json(
+        rows.into_iter()
+            .map(|r| ApplicantOut {
+                id: r.id,
+                username: r.username,
+                bio: r.bio,
+                avatar_url: r.avatar_file.map(|f| format!("/media/avatars/{f}")),
+                message: r.message,
+                applied_at: r.applied_at,
+                status: r.status,
+            })
+            .collect(),
+    ))
 }
 
 // --- Round 4: hiring & completion ---
@@ -538,14 +603,18 @@ pub async fn accept_applicant(
     Path((gig_id, worker_id)): Path<(i32, i32)>,
 ) -> AppResult<Json<GigOut>> {
     if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
-        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+        return Err(AppError::TooManyRequests(
+            "Too many requests, please try again later.".into(),
+        ));
     }
     let meta = gig_meta(&state, gig_id).await?;
     if meta.poster_id != current.id {
         return Err(AppError::Forbidden("Not allowed to manage this gig".into()));
     }
     if meta.status != "open" {
-        return Err(AppError::BadRequest("Only open gigs can accept an applicant".into()));
+        return Err(AppError::BadRequest(
+            "Only open gigs can accept an applicant".into(),
+        ));
     }
     if crate::routes::blocks::is_blocked_either(&state.pool, current.id, worker_id).await? {
         return Err(AppError::Forbidden("Cannot interact with this user".into()));
@@ -553,7 +622,10 @@ pub async fn accept_applicant(
     let app = sqlx::query_scalar::<_, String>(
         "SELECT status FROM gig_applications WHERE gig_id = $1 AND worker_id = $2",
     )
-    .bind(gig_id).bind(worker_id).fetch_optional(&state.pool).await?
+    .bind(gig_id)
+    .bind(worker_id)
+    .fetch_optional(&state.pool)
+    .await?
     .ok_or_else(|| AppError::NotFound("Application not found".into()))?;
     if app != "pending" {
         return Err(AppError::Conflict("Application is not pending".into()));
@@ -561,9 +633,17 @@ pub async fn accept_applicant(
 
     let mut tx = state.pool.begin().await?;
     sqlx::query("UPDATE gigs SET status = 'in_progress', hired_worker_id = $1 WHERE id = $2")
-        .bind(worker_id).bind(gig_id).execute(&mut *tx).await?;
-    sqlx::query("UPDATE gig_applications SET status = 'accepted' WHERE gig_id = $1 AND worker_id = $2")
-        .bind(gig_id).bind(worker_id).execute(&mut *tx).await?;
+        .bind(worker_id)
+        .bind(gig_id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query(
+        "UPDATE gig_applications SET status = 'accepted' WHERE gig_id = $1 AND worker_id = $2",
+    )
+    .bind(gig_id)
+    .bind(worker_id)
+    .execute(&mut *tx)
+    .await?;
     sqlx::query("UPDATE gig_applications SET status = 'rejected' WHERE gig_id = $1 AND worker_id <> $2 AND status = 'pending'")
         .bind(gig_id).bind(worker_id).execute(&mut *tx).await?;
     sqlx::query(
@@ -573,17 +653,38 @@ pub async fn accept_applicant(
     .bind(gig_id).bind(worker_id).execute(&mut *tx).await?;
     tx.commit().await?;
 
-    crate::notify::notify(&state, worker_id, current.id, "gig_accept", Some("gig"), Some(gig_id)).await;
+    crate::notify::notify(
+        &state,
+        worker_id,
+        current.id,
+        "gig_accept",
+        Some("gig"),
+        Some(gig_id),
+    )
+    .await;
     // notify rejected applicants
     let rejected: Vec<i32> = sqlx::query_scalar(
         "SELECT worker_id FROM gig_applications WHERE gig_id = $1 AND status = 'rejected'",
     )
-    .bind(gig_id).fetch_all(&state.pool).await.unwrap_or_default();
+    .bind(gig_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
     for uid in rejected {
-        crate::notify::notify(&state, uid, current.id, "gig_reject", Some("gig"), Some(gig_id)).await;
+        crate::notify::notify(
+            &state,
+            uid,
+            current.id,
+            "gig_reject",
+            Some("gig"),
+            Some(gig_id),
+        )
+        .await;
     }
 
-    let gig = fetch_gig(&state, current.id, gig_id).await?.ok_or(AppError::Internal)?;
+    let gig = fetch_gig(&state, current.id, gig_id)
+        .await?
+        .ok_or(AppError::Internal)?;
     Ok(Json(gig))
 }
 
@@ -602,7 +703,9 @@ pub async fn reject_applicant(
     Path((gig_id, worker_id)): Path<(i32, i32)>,
 ) -> AppResult<Json<Message>> {
     if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
-        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+        return Err(AppError::TooManyRequests(
+            "Too many requests, please try again later.".into(),
+        ));
     }
     let meta = gig_meta(&state, gig_id).await?;
     if meta.poster_id != current.id {
@@ -612,11 +715,24 @@ pub async fn reject_applicant(
         "UPDATE gig_applications SET status = 'rejected' \
          WHERE gig_id = $1 AND worker_id = $2 AND status = 'pending'",
     )
-    .bind(gig_id).bind(worker_id).execute(&state.pool).await?;
+    .bind(gig_id)
+    .bind(worker_id)
+    .execute(&state.pool)
+    .await?;
     if res.rows_affected() == 0 {
-        return Err(AppError::Conflict("No pending application to reject".into()));
+        return Err(AppError::Conflict(
+            "No pending application to reject".into(),
+        ));
     }
-    crate::notify::notify(&state, worker_id, current.id, "gig_reject", Some("gig"), Some(gig_id)).await;
+    crate::notify::notify(
+        &state,
+        worker_id,
+        current.id,
+        "gig_reject",
+        Some("gig"),
+        Some(gig_id),
+    )
+    .await;
     Ok(Json(Message::new("Applicant rejected.")))
 }
 
@@ -632,16 +748,24 @@ pub async fn complete_gig(
     Path(gig_id): Path<i32>,
 ) -> AppResult<Json<GigOut>> {
     if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
-        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+        return Err(AppError::TooManyRequests(
+            "Too many requests, please try again later.".into(),
+        ));
     }
     let meta = gig_meta(&state, gig_id).await?;
     if meta.status != "in_progress" {
-        return Err(AppError::BadRequest("Only in-progress gigs can be completed".into()));
+        return Err(AppError::BadRequest(
+            "Only in-progress gigs can be completed".into(),
+        ));
     }
-    let hired = meta.hired_worker_id.ok_or_else(|| AppError::BadRequest("No hired worker for this gig".into()))?;
+    let hired = meta
+        .hired_worker_id
+        .ok_or_else(|| AppError::BadRequest("No hired worker for this gig".into()))?;
     let (is_poster, is_worker) = (current.id == meta.poster_id, current.id == hired);
     if !is_poster && !is_worker {
-        return Err(AppError::Forbidden("Only the poster or hired worker can confirm completion".into()));
+        return Err(AppError::Forbidden(
+            "Only the poster or hired worker can confirm completion".into(),
+        ));
     }
 
     // ensure row exists
@@ -666,15 +790,43 @@ pub async fn complete_gig(
     let other = if is_poster { hired } else { meta.poster_id };
     if both {
         sqlx::query("UPDATE gigs SET status = 'completed' WHERE id = $1")
-            .bind(gig_id).execute(&state.pool).await?;
+            .bind(gig_id)
+            .execute(&state.pool)
+            .await?;
         // notify both parties completion finalized (other already knows; notify rater prompts context)
-        crate::notify::notify(&state, other, current.id, "gig_complete", Some("gig"), Some(gig_id)).await;
-        crate::notify::notify(&state, current.id, other, "gig_complete", Some("gig"), Some(gig_id)).await;
+        crate::notify::notify(
+            &state,
+            other,
+            current.id,
+            "gig_complete",
+            Some("gig"),
+            Some(gig_id),
+        )
+        .await;
+        crate::notify::notify(
+            &state,
+            current.id,
+            other,
+            "gig_complete",
+            Some("gig"),
+            Some(gig_id),
+        )
+        .await;
     } else {
-        crate::notify::notify(&state, other, current.id, "gig_complete", Some("gig"), Some(gig_id)).await;
+        crate::notify::notify(
+            &state,
+            other,
+            current.id,
+            "gig_complete",
+            Some("gig"),
+            Some(gig_id),
+        )
+        .await;
     }
 
-    let gig = fetch_gig(&state, current.id, gig_id).await?.ok_or(AppError::Internal)?;
+    let gig = fetch_gig(&state, current.id, gig_id)
+        .await?
+        .ok_or(AppError::Internal)?;
     Ok(Json(gig))
 }
 
@@ -695,24 +847,37 @@ pub async fn rate_gig(
     Json(payload): Json<CreateRatingRequest>,
 ) -> AppResult<(StatusCode, Json<RatingOut>)> {
     if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
-        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+        return Err(AppError::TooManyRequests(
+            "Too many requests, please try again later.".into(),
+        ));
     }
     if !(1..=5).contains(&payload.rating) {
-        return Err(AppError::Unprocessable("Rating must be between 1 and 5".into()));
+        return Err(AppError::Unprocessable(
+            "Rating must be between 1 and 5".into(),
+        ));
     }
-    let comment = payload.comment.map(|c| c.trim().to_owned()).filter(|c| !c.is_empty())
+    let comment = payload
+        .comment
+        .map(|c| c.trim().to_owned())
+        .filter(|c| !c.is_empty())
         .map(|c| c.chars().take(1000).collect::<String>());
     let meta = gig_meta(&state, gig_id).await?;
     if meta.status != "completed" {
-        return Err(AppError::BadRequest("Ratings are only allowed after the gig is completed".into()));
+        return Err(AppError::BadRequest(
+            "Ratings are only allowed after the gig is completed".into(),
+        ));
     }
-    let hired = meta.hired_worker_id.ok_or_else(|| AppError::BadRequest("No hired worker for this gig".into()))?;
+    let hired = meta
+        .hired_worker_id
+        .ok_or_else(|| AppError::BadRequest("No hired worker for this gig".into()))?;
     let ratee = if current.id == meta.poster_id {
         hired
     } else if current.id == hired {
         meta.poster_id
     } else {
-        return Err(AppError::Forbidden("Only the poster or hired worker can rate this gig".into()));
+        return Err(AppError::Forbidden(
+            "Only the poster or hired worker can rate this gig".into(),
+        ));
     };
 
     let row = sqlx::query_as::<_, RatingRow>(
@@ -739,7 +904,15 @@ pub async fn rate_gig(
         AppError::from(e)
     })?;
 
-    crate::notify::notify(&state, ratee, current.id, "gig_rating", Some("gig"), Some(gig_id)).await;
+    crate::notify::notify(
+        &state,
+        ratee,
+        current.id,
+        "gig_rating",
+        Some("gig"),
+        Some(gig_id),
+    )
+    .await;
     Ok((StatusCode::CREATED, Json(RatingOut::from(row))))
 }
 
@@ -754,13 +927,19 @@ pub async fn user_ratings(
     Path(user_id): Path<i32>,
 ) -> AppResult<Json<UserRatingsOut>> {
     let exists = sqlx::query_scalar::<_, i32>("SELECT id FROM users WHERE id = $1")
-        .bind(user_id).fetch_optional(&state.pool).await?;
-    if exists.is_none() { return Err(AppError::NotFound("User not found".into())); }
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await?;
+    if exists.is_none() {
+        return Err(AppError::NotFound("User not found".into()));
+    }
 
     let summary = sqlx::query_as::<_, (Option<f64>, i64)>(
         "SELECT AVG(rating)::float8, COUNT(*) FROM gig_ratings WHERE ratee_id = $1",
     )
-    .bind(user_id).fetch_one(&state.pool).await?;
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await?;
 
     let rows = sqlx::query_as::<_, RatingRow>(
         "SELECT r.id, r.gig_id, r.rater_id, u.username AS rater_username, u.avatar_file AS rater_avatar_file, \
@@ -771,7 +950,10 @@ pub async fn user_ratings(
     .bind(user_id).fetch_all(&state.pool).await?;
 
     Ok(Json(UserRatingsOut {
-        summary: RatingSummary { average: summary.0, count: summary.1 },
+        summary: RatingSummary {
+            average: summary.0,
+            count: summary.1,
+        },
         items: rows.into_iter().map(RatingOut::from).collect(),
     }))
 }

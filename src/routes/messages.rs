@@ -1,6 +1,6 @@
 use axum::{
-    http::HeaderMap,
     extract::{Path, Query, State},
+    http::HeaderMap,
     Json,
 };
 use serde::Deserialize;
@@ -98,7 +98,9 @@ pub async fn start_conversation(
     Json(payload): Json<StartConversationRequest>,
 ) -> AppResult<Json<ConversationOut>> {
     if !crate::rate_limit::check_ip(&headers, "interact", 40, 60) {
-        return Err(AppError::TooManyRequests("Too many requests, please try again later.".into()));
+        return Err(AppError::TooManyRequests(
+            "Too many requests, please try again later.".into(),
+        ));
     }
     if payload.user_id == current.id {
         return Err(AppError::BadRequest("Cannot message yourself".into()));
@@ -245,9 +247,10 @@ pub async fn mark_read(
     // let the other side's UI flip to "read" live
     if result.rows_affected() > 0 {
         let peer = if a == current.id { b } else { a };
-        state
-            .hub
-            .send_to(peer, serde_json::json!({"type":"read","conversation_id":conversation_id}));
+        state.hub.send_to(
+            peer,
+            serde_json::json!({"type":"read","conversation_id":conversation_id}),
+        );
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

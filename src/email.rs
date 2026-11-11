@@ -1,7 +1,6 @@
 use lettre::{
-    message::Mailbox,
-    transport::smtp::authentication::Credentials,
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
+    AsyncTransport, Message, Tokio1Executor,
 };
 
 use crate::{
@@ -11,9 +10,11 @@ use crate::{
 
 fn transport(config: &Config) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
     if config.smtp_user.is_empty() {
-        Ok(AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
-            .port(config.smtp_port)
-            .build())
+        Ok(
+            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
+                .port(config.smtp_port)
+                .build(),
+        )
     } else {
         Ok(
             AsyncSmtpTransport::<Tokio1Executor>::relay(&config.smtp_host)

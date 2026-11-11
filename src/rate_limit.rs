@@ -92,9 +92,13 @@ pub async fn interact_limit(req: Request, next: Next) -> Response {
     next.run(req).await
 }
 
-
 /// Helper for in-handler checks (returns Err-style bool: true if allowed).
-pub fn check_ip(headers: &axum::http::HeaderMap, bucket: &str, limit: usize, window_secs: u64) -> bool {
+pub fn check_ip(
+    headers: &axum::http::HeaderMap,
+    bucket: &str,
+    limit: usize,
+    window_secs: u64,
+) -> bool {
     let ip = headers
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
@@ -102,5 +106,9 @@ pub fn check_ip(headers: &axum::http::HeaderMap, bucket: &str, limit: usize, win
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "unknown".to_owned());
-    check(&format!("{bucket}:{ip}"), limit, Duration::from_secs(window_secs))
+    check(
+        &format!("{bucket}:{ip}"),
+        limit,
+        Duration::from_secs(window_secs),
+    )
 }

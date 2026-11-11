@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::time::Duration;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use axum::extract::ws::{Message as WsFrame, WebSocket};
 use axum::extract::{Request, State, WebSocketUpgrade};
@@ -111,7 +111,11 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: i32) {
 
     let send_task = tokio::spawn(async move {
         while let Some(event) = out_rx.recv().await {
-            if ws_tx.send(WsFrame::Text(event.to_string().into())).await.is_err() {
+            if ws_tx
+                .send(WsFrame::Text(event.to_string().into()))
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -327,15 +331,21 @@ async fn send_message(
         .fetch_optional(&state.pool)
         .await;
         if let Ok(Some((email, true))) = recipient_info {
-            let sender_name = sqlx::query_scalar::<_, String>(
-                "SELECT username FROM users WHERE id = $1",
-            )
-            .bind(user_id)
-            .fetch_optional(&state.pool)
-            .await
-            .unwrap_or(None);
+            let sender_name =
+                sqlx::query_scalar::<_, String>("SELECT username FROM users WHERE id = $1")
+                    .bind(user_id)
+                    .fetch_optional(&state.pool)
+                    .await
+                    .unwrap_or(None);
             if let Some(sender_name) = sender_name {
-                if let Err(err) = crate::email::send_message_email(&state.config, &email, &sender_name, conversation_id).await {
+                if let Err(err) = crate::email::send_message_email(
+                    &state.config,
+                    &email,
+                    &sender_name,
+                    conversation_id,
+                )
+                .await
+                {
                     tracing::warn!(error = %err, recipient_email = %email, "message email failed");
                 }
             }
@@ -376,6 +386,8 @@ async fn mark_incoming_delivered(state: &AppState, user_id: i32) {
     }
     for (conv_id, user_a, user_b) in convs {
         let peer = if user_a == user_id { user_b } else { user_a };
-        state.hub.send_to(peer, json!({"type":"delivered","conversation_id":conv_id}));
+        state
+            .hub
+            .send_to(peer, json!({"type":"delivered","conversation_id":conv_id}));
     }
 }
