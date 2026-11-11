@@ -135,6 +135,10 @@ pub struct FollowInfo {
     pub followers_count: i64,
     pub following_count: i64,
     pub is_following: bool,
+    /// Current user has blocked this user.
+    pub is_blocked_by_me: bool,
+    /// This user has blocked the current user.
+    pub is_blocked_by_them: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

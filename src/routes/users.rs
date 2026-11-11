@@ -359,10 +359,28 @@ pub async fn follow_info(
     .fetch_optional(&state.pool)
     .await?
     .is_some();
+    let is_blocked_by_me = sqlx::query_scalar::<_, i64>(
+        "SELECT 1::bigint FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2",
+    )
+    .bind(current.id)
+    .bind(user_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .is_some();
+    let is_blocked_by_them = sqlx::query_scalar::<_, i64>(
+        "SELECT 1::bigint FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2",
+    )
+    .bind(user_id)
+    .bind(current.id)
+    .fetch_optional(&state.pool)
+    .await?
+    .is_some();
     Ok(Json(FollowInfo {
         followers_count,
         following_count,
         is_following,
+        is_blocked_by_me,
+        is_blocked_by_them,
     }))
 }
 
