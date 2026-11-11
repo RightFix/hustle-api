@@ -374,6 +374,9 @@ pub async fn apply_gig(
     if status != "open" {
         return Err(AppError::BadRequest("This gig is closed".into()));
     }
+    if crate::routes::blocks::is_blocked_either(&state.pool, current.id, poster_id).await? {
+        return Err(AppError::Forbidden("Cannot interact with this user".into()));
+    }
     let message = payload
         .message
         .map(|m| m.trim().to_owned())
@@ -575,9 +578,16 @@ pub async fn list_applicants(
     let rows = sqlx::query_as::<_, ApplicantRow>(
         "SELECT u.id, u.username, u.bio, u.avatar_file, a.message, a.created_at AS applied_at \
          FROM gig_applications a JOIN users u ON u.id = a.worker_id \
-         WHERE a.gig_id = $1 ORDER BY a.created_at DESC",
+         WHERE a.gig_id = $1 \
+           AND NOT EXISTS ( \
+             SELECT 1 FROM user_blocks b \
+             WHERE (b.blocker_id = $2 AND b.blocked_id = u.id) \
+                OR (b.blocker_id = u.id AND b.blocked_id = $2) \
+           ) \
+         ORDER BY a.created_at DESC",
     )
     .bind(gig_id)
+    .bind(current.id)
     .fetch_all(&state.pool)
     .await?;
     Ok(Json(
