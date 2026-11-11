@@ -351,6 +351,8 @@ pub struct ConversationListRow {
     pub last_sender_id: Option<i32>,
     pub unread_count: i64,
     pub updated_at: DateTime<Utc>,
+    pub is_blocked_by_me: bool,
+    pub is_blocked_by_them: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -402,6 +404,8 @@ pub struct ConversationOut {
     pub last_message: Option<MessageBrief>,
     pub unread_count: i64,
     pub updated_at: DateTime<Utc>,
+    pub is_blocked_by_me: bool,
+    pub is_blocked_by_them: bool,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

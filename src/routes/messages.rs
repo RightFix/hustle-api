@@ -20,7 +20,9 @@ const CONVERSATION_SELECT: &str = "SELECT c.id, \
      lm.body AS last_body, lm.created_at AS last_created_at, lm.sender_id AS last_sender_id, \
      (SELECT COUNT(*) FROM messages m \
       WHERE m.conversation_id = c.id AND m.sender_id <> $1 AND m.read_at IS NULL) AS unread_count, \
-     GREATEST(c.created_at, COALESCE(lm.created_at, c.created_at)) AS updated_at \
+     GREATEST(c.created_at, COALESCE(lm.created_at, c.created_at)) AS updated_at, \
+     EXISTS(SELECT 1 FROM user_blocks b WHERE b.blocker_id = $1 AND b.blocked_id = ou.id) AS is_blocked_by_me, \
+     EXISTS(SELECT 1 FROM user_blocks b WHERE b.blocker_id = ou.id AND b.blocked_id = $1) AS is_blocked_by_them \
      FROM conversations c \
      JOIN users ou ON ou.id = CASE WHEN c.user_a = $1 THEN c.user_b ELSE c.user_a END \
      LEFT JOIN LATERAL ( \
@@ -47,6 +49,8 @@ fn conversation_out(row: ConversationListRow) -> ConversationOut {
         },
         unread_count: row.unread_count,
         updated_at: row.updated_at,
+        is_blocked_by_me: row.is_blocked_by_me,
+        is_blocked_by_them: row.is_blocked_by_them,
     }
 }
 
