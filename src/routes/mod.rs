@@ -39,6 +39,7 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         .route("/users/me/skills", put(users::update_skills))
         .route("/users/{user_id}", get(users::read_user))
         .route("/users/{user_id}/skills", get(users::read_skills))
+        .route("/users/{user_id}/ratings", get(gigs::user_ratings))
         .route(
             "/users/{user_id}/follow",
             axum::routing::post(users::follow_user)
@@ -93,7 +94,17 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
             "/gigs/{gig_id}/apply",
             post(gigs::apply_gig).delete(gigs::withdraw_gig),
         )
-        .route("/gigs/{gig_id}/applicants", get(gigs::list_applicants));
+        .route("/gigs/{gig_id}/applicants", get(gigs::list_applicants))
+        .route(
+            "/gigs/{gig_id}/applicants/{worker_id}/accept",
+            post(gigs::accept_applicant),
+        )
+        .route(
+            "/gigs/{gig_id}/applicants/{worker_id}/reject",
+            post(gigs::reject_applicant),
+        )
+        .route("/gigs/{gig_id}/complete", post(gigs::complete_gig))
+        .route("/gigs/{gig_id}/rating", post(gigs::rate_gig));
 
     let conversations = Router::new()
         .route(

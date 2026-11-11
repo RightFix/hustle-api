@@ -53,6 +53,7 @@ pub struct ApplicantRow {
     pub avatar_file: Option<String>,
     pub message: Option<String>,
     pub applied_at: DateTime<Utc>,
+    pub status: String,
 }
 
 // ----- Response DTOs -----
@@ -191,9 +192,15 @@ pub struct GigOut {
     pub pay: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    /// Hired worker id when a gig is in progress/completed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hired_worker_id: Option<i32>,
     /// Whether the current viewer already applied (set on gig responses).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub applied: Option<bool>,
+    /// Viewer's application status for this gig (pending/accepted/rejected), if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub my_application_status: Option<String>,
     /// Whether the current viewer saved/bookmarked this gig.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub saved: Option<bool>,
@@ -218,6 +225,8 @@ pub struct ApplicantOut {
     pub avatar_url: Option<String>,
     pub message: Option<String>,
     pub applied_at: DateTime<Utc>,
+    /// pending | accepted | rejected
+    pub status: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -796,4 +805,69 @@ pub struct PaginatedAdminAudit {
     pub total: i64,
     pub page: u32,
     pub per_page: u32,
+}
+
+
+// ----- Ratings (Round 4) -----
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateRatingRequest {
+    /// 1-5
+    pub rating: i16,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct RatingRow {
+    pub id: i32,
+    pub gig_id: i32,
+    pub rater_id: i32,
+    pub rater_username: String,
+    pub rater_avatar_file: Option<String>,
+    pub ratee_id: i32,
+    pub rating: i16,
+    pub comment: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RatingOut {
+    pub id: i32,
+    pub gig_id: i32,
+    pub rater_id: i32,
+    pub rater_username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rater_avatar_url: Option<String>,
+    pub ratee_id: i32,
+    pub rating: i16,
+    pub comment: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<RatingRow> for RatingOut {
+    fn from(r: RatingRow) -> Self {
+        Self {
+            id: r.id,
+            gig_id: r.gig_id,
+            rater_id: r.rater_id,
+            rater_username: r.rater_username,
+            rater_avatar_url: r.rater_avatar_file.map(|f| format!("/media/avatars/{f}")),
+            ratee_id: r.ratee_id,
+            rating: r.rating,
+            comment: r.comment,
+            created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RatingSummary {
+    pub average: Option<f64>,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UserRatingsOut {
+    pub summary: RatingSummary,
+    pub items: Vec<RatingOut>,
 }
