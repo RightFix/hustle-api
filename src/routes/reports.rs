@@ -4,6 +4,7 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
+use serde_json::json;
 use utoipa::IntoParams;
 
 use crate::{
@@ -245,6 +246,16 @@ pub async fn admin_resolve_report(
     .bind(id)
     .fetch_one(&state.pool)
     .await?;
+
+    crate::audit::log(
+        &state,
+        admin.id,
+        if status == "resolved" { "report.resolve" } else { "report.dismiss" },
+        "report",
+        Some(id),
+        json!({"note": note, "target_type": row.target_type, "target_id": row.target_id}),
+    )
+    .await;
 
     Ok(Json(AdminReportOut::from(row)))
 }

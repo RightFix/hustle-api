@@ -3,13 +3,14 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
+use serde_json::json;
 use utoipa::IntoParams;
 
 use crate::{
     auth::AdminUser,
     error::{AppError, AppResult},
     models::{
-        AdminGigOut, AdminPostOut, AdminUpdateUser, AdminUserDetail, Message, PaginatedAdminGigs,
+        AdminAuditOut, AdminAuditRow, AdminGigOut, AdminPostOut, AdminUpdateUser, AdminUserDetail, Message, PaginatedAdminAudit, PaginatedAdminGigs,
         PaginatedAdminPosts, PaginatedUsers, StatsOut, UserOut, UserRow,
     },
     AppState,
@@ -212,14 +213,17 @@ pub async fn update_user(
         }
         sqlx::query("UPDATE users SET is_admin = $1 WHERE id = $2")
             .bind(make_admin).bind(id).execute(&state.pool).await?;
+        crate::audit::log(&state, admin.id, if make_admin { "user.promote_admin" } else { "user.demote_admin" }, "user", Some(id), json!({})).await;
     }
     if let Some(verified) = payload.email_verified {
         if verified {
             sqlx::query("UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1")
                 .bind(id).execute(&state.pool).await?;
+            crate::audit::log(&state, admin.id, "user.verify_email", "user", Some(id), json!({})).await;
         } else {
             sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1")
                 .bind(id).execute(&state.pool).await?;
+            crate::audit::log(&state, admin.id, "user.unverify_email", "user", Some(id), json!({})).await;
         }
     }
     if let Some(suspend) = payload.is_suspended {
@@ -235,6 +239,7 @@ pub async fn update_user(
             .bind(id)
             .execute(&state.pool)
             .await?;
+            crate::audit::log(&state, admin.id, "user.suspend", "user", Some(id), json!({"reason": reason})).await;
         } else {
             sqlx::query(
                 "UPDATE users SET is_suspended = FALSE, suspended_reason = NULL, suspended_at = NULL WHERE id = $1",
@@ -242,14 +247,14 @@ pub async fn update_user(
             .bind(id)
             .execute(&state.pool)
             .await?;
+            crate::audit::log(&state, admin.id, "user.unsuspend", "user", Some(id), json!({})).await;
         }
     } else if let Some(reason) = payload.suspended_reason {
-        // Update reason text only when already suspended.
         if user.is_suspended {
             let reason = reason.trim();
             let reason = if reason.is_empty() { None } else { Some(reason.to_owned()) };
             sqlx::query("UPDATE users SET suspended_reason = $1 WHERE id = $2")
-                .bind(reason).bind(id).execute(&state.pool).await?;
+                .bind(reason.as_deref()).bind(id).execute(&state.pool).await?;
         }
     }
 
@@ -287,6 +292,7 @@ pub async fn delete_user(
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("User not found".into()));
     }
+    crate::audit::log(&state, admin.id, "user.delete", "user", Some(id), json!({})).await;
     Ok(Json(Message { detail: "User deleted".into() }))
 }
 
@@ -340,7 +346,7 @@ pub async fn list_posts(
 )]
 pub async fn delete_post(
     State(state): State<AppState>,
-    _admin: AdminUser,
+    AdminUser(admin): AdminUser,
     Path(id): Path<i32>,
 ) -> AppResult<Json<Message>> {
     let res = sqlx::query("DELETE FROM posts WHERE id = $1")
@@ -348,6 +354,7 @@ pub async fn delete_post(
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("Post not found".into()));
     }
+    crate::audit::log(&state, admin.id, "post.delete", "post", Some(id), json!({})).await;
     Ok(Json(Message { detail: "Post deleted".into() }))
 }
 
@@ -401,7 +408,7 @@ pub async fn list_gigs(
 )]
 pub async fn delete_gig(
     State(state): State<AppState>,
-    _admin: AdminUser,
+    AdminUser(admin): AdminUser,
     Path(id): Path<i32>,
 ) -> AppResult<Json<Message>> {
     let res = sqlx::query("DELETE FROM gigs WHERE id = $1")
@@ -409,5 +416,57 @@ pub async fn delete_gig(
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("Gig not found".into()));
     }
+    crate::audit::log(&state, admin.id, "gig.delete", "gig", Some(id), json!({})).await;
     Ok(Json(Message { detail: "Gig deleted".into() }))
+}
+
+
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct AuditQuery {
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_per_page")]
+    pub per_page: u32,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/admin/audit",
+    tag = "admin",
+    security(("cookie_auth" = [])),
+    params(AuditQuery),
+    responses((status = 200, description = "Paginated admin audit log", body = PaginatedAdminAudit))
+)]
+pub async fn list_audit(
+    State(state): State<AppState>,
+    _admin: AdminUser,
+    Query(q): Query<AuditQuery>,
+) -> AppResult<Json<PaginatedAdminAudit>> {
+    let page = q.page.max(1);
+    let per_page = q.per_page.clamp(1, 100);
+    let offset = (page - 1) as i64 * per_page as i64;
+
+    let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM admin_audit_logs")
+        .fetch_one(&state.pool)
+        .await?;
+
+    let rows = sqlx::query_as::<_, AdminAuditRow>(
+        "SELECT a.id, a.actor_id, u.username AS actor_username, a.action, a.target_type, \
+                a.target_id, a.metadata, a.created_at \
+         FROM admin_audit_logs a \
+         LEFT JOIN users u ON u.id = a.actor_id \
+         ORDER BY a.created_at DESC, a.id DESC \
+         LIMIT $1 OFFSET $2",
+    )
+    .bind(per_page as i64)
+    .bind(offset)
+    .fetch_all(&state.pool)
+    .await?;
+
+    Ok(Json(PaginatedAdminAudit {
+        items: rows.into_iter().map(AdminAuditOut::from).collect(),
+        total,
+        page,
+        per_page,
+    }))
 }

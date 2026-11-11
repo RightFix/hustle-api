@@ -70,7 +70,8 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         .route("/admin/gigs", get(admin::list_gigs))
         .route("/admin/gigs/{id}", delete(admin::delete_gig))
         .route("/admin/reports", get(reports::admin_list_reports))
-        .route("/admin/reports/{id}", axum::routing::patch(reports::admin_resolve_report));
+        .route("/admin/reports/{id}", axum::routing::patch(reports::admin_resolve_report))
+        .route("/admin/audit", get(admin::list_audit));
 
     let gigs = Router::new()
         .route("/gigs", get(gigs::list_gigs).post(gigs::create_gig))

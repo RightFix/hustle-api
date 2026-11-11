@@ -732,3 +732,53 @@ pub struct BlockedUserOut {
     pub avatar_url: Option<String>,
     pub blocked_at: DateTime<Utc>,
 }
+
+
+// ----- Admin audit -----
+
+#[derive(Debug, Clone, FromRow)]
+pub struct AdminAuditRow {
+    pub id: i32,
+    pub actor_id: Option<i32>,
+    pub actor_username: Option<String>,
+    pub action: String,
+    pub target_type: String,
+    pub target_id: Option<i32>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AdminAuditOut {
+    pub id: i32,
+    pub actor_id: Option<i32>,
+    pub actor_username: Option<String>,
+    pub action: String,
+    pub target_type: String,
+    pub target_id: Option<i32>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<AdminAuditRow> for AdminAuditOut {
+    fn from(r: AdminAuditRow) -> Self {
+        Self {
+            id: r.id,
+            actor_id: r.actor_id,
+            actor_username: r.actor_username,
+            action: r.action,
+            target_type: r.target_type,
+            target_id: r.target_id,
+            metadata: r.metadata,
+            created_at: r.created_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PaginatedAdminAudit {
+    pub items: Vec<AdminAuditOut>,
+    pub total: i64,
+    pub page: u32,
+    pub per_page: u32,
+}
